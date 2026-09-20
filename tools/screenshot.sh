@@ -32,9 +32,10 @@ QPID=$!
 echo "waiting ${WAIT}s for the desktop…"
 sleep "$WAIT"
 
-python3 - "$W/qmp.sock" "$W/shot.ppm" "$KEYS" <<'EOF'
+DUMPS="${DUMPS:-6}"
+python3 - "$W/qmp.sock" "$W/shot.ppm" "$KEYS" "$DUMPS" <<'EOF'
 import json, socket, sys, time
-sock, out, keystr = sys.argv[1], sys.argv[2], sys.argv[3]
+sock, out, keystr, dumps = sys.argv[1], sys.argv[2], sys.argv[3], int(sys.argv[4])
 keys = keystr.split()
 s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 s.connect(sock)
@@ -50,12 +51,12 @@ cmd({"execute": "qmp_capabilities"})
 if keys:
     cmd({"execute": "send-key", "arguments": {"keys": [{"key": k} for k in keys]}})
     time.sleep(6)
-# up to 6 dumps, 150s apart; last one wins
-for i in range(6):
+# dumps, 150s apart; last one wins
+for i in range(dumps):
     if i:
         time.sleep(150)
     cmd({"execute": "screendump", "arguments": {"filename": out}})
-    print(f"screendump {i + 1}/6 ok", flush=True)
+    print(f"screendump {i + 1}/{dumps} ok", flush=True)
 EOF
 
 kill $QPID 2>/dev/null || true
