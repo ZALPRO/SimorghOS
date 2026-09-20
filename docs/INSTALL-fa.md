@@ -8,7 +8,7 @@
 2. نوشتن روی فلش:
 
 ```bash
-sudo dd if=simorgh-os-1.0-amd64.iso of=/dev/sdX bs=4M status=progress oflag=sync
+sudo dd if=simorgh-os-0.0.1-amd64.iso of=/dev/sdX bs=4M status=progress oflag=sync
 ```
 
 3. بوت (UEFI و BIOS هر دو پشتیبانی می‌شوند)
