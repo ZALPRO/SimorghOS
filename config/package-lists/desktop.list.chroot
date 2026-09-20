@@ -55,7 +55,6 @@ gparted
 mesa-utils
 mesa-va-drivers
 mesa-vulkan-drivers
-libvulkan-lvp
 vulkan-tools
 firefox-esr
 firefox-esr-l10n-fa
