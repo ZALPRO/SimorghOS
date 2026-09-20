@@ -54,6 +54,7 @@ print("screendump ok")
 EOF
 
 kill $QPID 2>/dev/null || true
+cp "$W/serial.log" "${OUT}.serial" 2>/dev/null || true
 if command -v convert >/dev/null 2>&1; then
   convert "$W/shot.ppm" "$OUT"
 else
