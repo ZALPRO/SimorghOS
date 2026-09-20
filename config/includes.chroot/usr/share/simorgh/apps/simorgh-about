@@ -70,11 +70,14 @@ def main():
     except OSError:
         pass
     if gpu == "?":
-        r = GLib.spawn_command_line_sync("lspci")[2] or b""
-        for ln in r.decode(errors="ignore").splitlines():
-            if "VGA" in ln or "3D" in ln:
-                gpu = ln.split(": ", 1)[-1]
-                break
+        try:
+            r = GLib.spawn_command_line_sync("lspci")[2] or b""
+            for ln in r.decode(errors="ignore").splitlines():
+                if "VGA" in ln or "3D" in ln:
+                    gpu = ln.split(": ", 1)[-1]
+                    break
+        except Exception:
+            gpu = "—"
     kv(info, "GPU", gpu)
     du = shutil.disk_usage("/")
     kv(info, "Storage", f"{du.used // 2**30} GiB used of {du.total // 2**30} GiB")

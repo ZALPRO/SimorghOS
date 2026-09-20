@@ -4,7 +4,9 @@ import os
 import gi
 
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gdk, Gtk  # noqa: E402
+gi.require_version("Gdk", "3.0")
+gi.require_version("Pango", "1.0")
+from gi.repository import Gdk, Gtk, Pango  # noqa: E402
 
 CSS_PATHS = ("/etc/simorgh/ui.css",)
 ICON_THEME = "Simorgh"
@@ -17,9 +19,13 @@ def init(name: str, width=560, height=640):
     for css in CSS_PATHS:
         if os.path.exists(css):
             prov = Gtk.CssProvider()
-            prov.load_from_path(css)
-            Gtk.StyleContext.add_provider_for_screen(
-                screen, prov, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+            try:
+                prov.load_from_path(css)
+                Gtk.StyleContext.add_provider_for_screen(
+                    screen, prov, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+            except Exception as e:  # a CSS typo must never crash the app
+                import sys
+                print(f"simorgh: warning: could not load {css}: {e}", file=sys.stderr)
     st = Gtk.Settings.get_default()
     st.set_property("gtk-application-prefer-dark-theme", True)
     st.set_property("gtk-icon-theme-name", ICON_THEME)
@@ -68,7 +74,6 @@ def label(text, cls=None, size=None, bold=False):
 
 
 def _font(size, bold):
-    import Pango
     d = Gtk.Settings.get_default().get_property("gtk-font-name").split()
     name = " ".join(d[:-1]) or "Vazirmatn"
     return Pango.FontDescription(f"{name} {'Bold ' if bold else ''}{size}")

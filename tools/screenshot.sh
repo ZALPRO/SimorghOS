@@ -16,7 +16,7 @@ xorriso -osirrox on -indev "$ISO" \
     -extract /live/vmlinuz "$W/vmlinuz" \
     -extract /live/initrd.img "$W/initrd" >/dev/null 2>&1
 
-qemu-system-x86_64 -m 1536 -smp 2 -cpu max \
+qemu-system-x86_64 -m "${RAM:-1200}" -smp 2 -cpu max \
     -kernel "$W/vmlinuz" -initrd "$W/initrd" -cdrom "$ISO" \
     -append "boot=live quiet $EXTRA" \
     -device virtio-gpu-pci \

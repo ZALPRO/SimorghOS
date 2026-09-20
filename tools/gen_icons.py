@@ -361,6 +361,22 @@ ICONS = {
     ],
     "filter": [f'<path d="M11 12h26l-9.5 11v9l-7 4v-13z" fill="{G}"/>'],
     "info": [f'<circle cx="24" cy="24" r="14.5" fill="{G}"/><path d="M24 21v10" stroke="{WHITE}" stroke-width="3.4" stroke-linecap="round"/><circle cx="24" cy="15.5" r="2.1" fill="{WHITE}"/>'],
+    "chat": [
+        f'<path d="M10 14a5 5 0 0 1 5-5h18a5 5 0 0 1 5 5v13a5 5 0 0 1-5 5H20l-8 6v-6a5 5 0 0 1-2-4z" fill="{G}"/>',
+        f'<path d="M10 14a5 5 0 0 1 5-5h18a5 5 0 0 1 5 5v4H10z" fill="#ffffff" opacity="0.12"/>',
+        f'<circle cx="18" cy="21" r="2.2" fill="{WHITE}"/><circle cx="24" cy="21" r="2.2" fill="{WHITE}"/><circle cx="30" cy="21" r="2.2" fill="{WHITE}"/>',
+    ],
+    "disk": [
+        f'<rect x="9" y="12" width="30" height="24" rx="5" fill="{G}"/>',
+        f'<rect x="12" y="15" width="24" height="18" rx="3" fill="{DARK}"/>',
+        f'<circle cx="24" cy="24" r="6" fill="none" stroke="{G}" stroke-width="2.4"/>',
+        f'<circle cx="24" cy="24" r="2" fill="{GOLD}"/>',
+    ],
+    "terminal-dbg": [
+        f'<rect x="9" y="11" width="30" height="26" rx="6" fill="{DARK}"/>',
+        f'<path d="M13.5 20l5 4.5-5 4.5" fill="none" stroke="{G}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>',
+        f'<rect x="21.5" y="29" width="9" height="2.6" rx="1.3" fill="{GOLD}"/>',
+    ],
 }
 
 # names that are "apps" (get the tile); pure UI glyphs get a transparent
@@ -371,6 +387,7 @@ TILED = {
     "recorder", "task-manager", "monitor", "security", "user", "power", "update",
     "installer", "repair", "restore", "reset", "backup", "boot", "accessibility",
     "developer", "about", "settings", "search", "trash", "star", "tag", "cloud",
+    "chat", "disk",
 }
 
 INDEX_APPS = {

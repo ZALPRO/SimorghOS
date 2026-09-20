@@ -37,7 +37,7 @@ class Clock:
         nb.append_page(self.tab_timer(), Gtk.Label(label="Timer"))
         nb.append_page(self.tab_stop(), Gtk.Label(label="Stopwatch"))
         self.win.add(nb)
-        GLib.timeout_add_seconds(1, self.tick)
+        GLib.timeout_add_seconds(1, lambda: self.tick(None))
         self.tick(None)
 
     # ── world ──

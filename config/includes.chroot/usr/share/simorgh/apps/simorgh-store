@@ -26,50 +26,50 @@ CAT = [
 ]
 
 CATALOG = [
-    ("brave", "Brave Browser", "وب‌گشتگر سریع با بلاکر تبلیغات و ردیاب‌ها.", "web-browser", "apt", "brave-browser", "internet"),
-    ("firefox", "Mozilla Firefox", "وب‌گشتگر سریع و امن با محافظت از حریم خصوصی.", "web-browser", "apt", "firefox", "internet"),
+    ("brave", "Brave Browser", "وب‌گشتگر سریع با بلاکر تبلیغات و ردیاب‌ها.", "browser", "apt", "brave-browser", "internet"),
+    ("firefox", "Mozilla Firefox", "وب‌گشتگر سریع و امن با محافظت از حریم خصوصی.", "browser", "apt", "firefox", "internet"),
     ("thunderbird", "Thunderbird", "مشترای ایمیل و تقویم از موزیلا.", "mail", "apt", "thunderbird", "internet"),
-    ("vivaldi", "Vivaldi", "مرورگر قدرتمند و کاملاً شخصی‌سازی‌پذیر.", "web-browser", "flathub", "com.vivaldi.Vivaldi", "internet"),
-    ("telegram", "Telegram", "پیام‌رسان تلگرام.", "org.telegram.desktop", "flathub", "org.telegram.desktop", "internet"),
-    ("signal", "Signal", "پیام‌رسان امن.", "org.signal", "flathub", "org.signal.desktop", "internet"),
-    ("element", "Element", "کلاینت Matrix برای چت و تماس.", "io.element", "flathub", "io.element", "internet"),
-    ("wireshark", "Wireshark", "تحلیل ترافیک شبکه.", "org.wireshark.Wireshark", "flathub", "org.wireshark.Wireshark", "internet"),
-    ("filezilla", "FileZilla", "انتقال فایل FTP/SFTP.", "filezilla", "apt", "filezilla", "internet"),
-    ("transmission", "Transmission", "کلاینت بیت‌تورنت.", "transmission-gtk", "apt", "transmission-gtk", "internet"),
-    ("libreoffice", "LibreOffice", "سریهٔ آفیس: کلم، کلس، ایمی و…", "x-office-document", "apt", "libreoffice", "productivity"),
-    ("onlyoffice", "ONLYOFFICE", "سریهٔ آفیس سازگار با Office.", "ru.onlyoffice.desktopeditors", "flathub", "ru.onlyoffice.desktopeditors", "productivity"),
-    ("calibre", "Calibre", "مدیریت کتاب الکترونیکی.", "calibre", "apt", "calibre", "productivity"),
-    ("joplin", "Joplin", "یادداشت‌برداری و سازمان‌دهی.", "Joplin", "flathub", "md.joplin.Joplin", "productivity"),
-    ("gimp", "GIMP", "تدوین و ویرایش تصویر حرفه‌ای.", "graphics-gimp", "apt", "gimp", "graphics"),
-    ("inkscape", "Inkscape", "طراحی برداری (SVG) متن‌باز.", "applications-graphics", "apt", "inkscape", "graphics"),
-    ("krita", "Krita", "نقاشی دیجیتال و کمیک.", "com.kde.krita", "flathub", "org.kde.krita", "graphics"),
-    ("blender", "Blender", "مدل‌سازی سه‌بعدی و انیمیشن.", "blender", "apt", "blender", "graphics"),
-    ("vlc", "VLC", "پخش‌کنندهٔ رسانهٔ همه‌چیز.", "vlc", "apt", "vlc", "media"),
-    ("kodi", "Kodi", "مرکز رسانه و تلویزیون خانگی.", "tv", "apt", "kodi", "media"),
-    ("obs", "OBS Studio", "استریم و ضبط صفحه.", "org.obsproject.OBS", "flathub", "com.obsproject.Studio", "media"),
-    ("kdenlive", "Kdenlive", "تدوین ویرایش ویدیو.", "org.kde.kdenlive", "flathub", "org.kde.kdenlive", "media"),
-    ("audacity", "Audacity", "تدوین صدا.", "org.audacityteam.Audacity", "flathub", "org.audacityteam.Audacity", "media"),
-    ("audacious", "Audacious", "پخش‌کنندهٔ سبک.", "multimedia-audio-player", "apt", "audacious", "media"),
-    ("vscode", "VS Code", "ویرایشگر و محیط برنامه‌نویسی.", "code", "apt", "code", "development"),
-    ("vscodium", "VSCodium", "VS Code بدون ردیابی (متن‌باز).", "com.vscodium.codium", "flathub", "com.vscodium.codium", "development"),
+    ("vivaldi", "Vivaldi", "مرورگر قدرتمند و کاملاً شخصی‌سازی‌پذیر.", "browser", "flathub", "com.vivaldi.Vivaldi", "internet"),
+    ("telegram", "Telegram", "پیام‌رسان تلگرام.", "chat", "flathub", "org.telegram.desktop", "internet"),
+    ("signal", "Signal", "پیام‌رسان امن.", "chat", "flathub", "org.signal.desktop", "internet"),
+    ("element", "Element", "کلاینت Matrix برای چت و تماس.", "chat", "flathub", "io.element", "internet"),
+    ("wireshark", "Wireshark", "تحلیل ترافیک شبکه.", "monitor", "flathub", "org.wireshark.Wireshark", "internet"),
+    ("filezilla", "FileZilla", "انتقال فایل FTP/SFTP.", "files", "apt", "filezilla", "internet"),
+    ("transmission", "Transmission", "کلاینت بیت‌تورنت.", "cloud", "apt", "transmission-gtk", "internet"),
+    ("libreoffice", "LibreOffice", "سریهٔ آفیس: کلم، کلس، ایمی و…", "text-editor", "apt", "libreoffice", "productivity"),
+    ("onlyoffice", "ONLYOFFICE", "سریهٔ آفیس سازگار با Office.", "text-editor", "flathub", "ru.onlyoffice.desktopeditors", "productivity"),
+    ("calibre", "Calibre", "مدیریت کتاب الکترونیکی.", "pdf", "apt", "calibre", "productivity"),
+    ("joplin", "Joplin", "یادداشت‌برداری و سازمان‌دهی.", "text-editor", "flathub", "md.joplin.Joplin", "productivity"),
+    ("gimp", "GIMP", "تدوین و ویرایش تصویر حرفه‌ای.", "photos", "apt", "gimp", "graphics"),
+    ("inkscape", "Inkscape", "طراحی برداری (SVG) متن‌باز.", "photos", "apt", "inkscape", "graphics"),
+    ("krita", "Krita", "نقاشی دیجیتال و کمیک.", "photos", "flathub", "org.kde.krita", "graphics"),
+    ("blender", "Blender", "مدل‌سازی سه‌بعدی و انیمیشن.", "video", "apt", "blender", "graphics"),
+    ("vlc", "VLC", "پخش‌کنندهٔ رسانهٔ همه‌چیز.", "video", "apt", "vlc", "media"),
+    ("kodi", "Kodi", "مرکز رسانه و تلویزیون خانگی.", "video", "apt", "kodi", "media"),
+    ("obs", "OBS Studio", "استریم و ضبط صفحه.", "recorder", "flathub", "com.obsproject.Studio", "media"),
+    ("kdenlive", "Kdenlive", "تدوین ویرایش ویدیو.", "video", "flathub", "org.kde.kdenlive", "media"),
+    ("audacity", "Audacity", "تدوین صدا.", "music", "flathub", "org.audacityteam.Audacity", "media"),
+    ("audacious", "Audacious", "پخش‌کنندهٔ سبک.", "music", "apt", "audacious", "media"),
+    ("vscode", "VS Code", "ویرایشگر و محیط برنامه‌نویسی.", "developer", "apt", "code", "development"),
+    ("vscodium", "VSCodium", "VS Code بدون ردیابی (متن‌باز).", "developer", "flathub", "com.vscodium.codium", "development"),
     ("gedit", "gedit", "ویرایشگر متن ساده.", "text-editor", "apt", "gedit", "development"),
-    ("python3", "Python 3", "زبان برنامه‌نویسی پایتون.", "utilities-terminal", "apt", "python3", "development"),
-    ("git", "Git", "سیستم کنترل نسخه.", "emblem-symbolic-link", "apt", "git", "development"),
-    ("nodejs", "Node.js", "محیط اجرای جاوااسکریپت.", "nodejs", "apt", "nodejs", "development"),
-    ("golang", "Go", "زبان برنامه‌نویسی گو.", "applications-engineering", "apt", "golang", "development"),
-    ("rustc", "Rust", "زبان برنامه‌نویسی راست.", "applications-engineering", "apt", "rustc", "development"),
-    ("build-essential", "Build tools", "زنجیرهٔ کامپایلر C/C++.", "applications-engineering", "apt", "build-essential", "development"),
-    ("timeshift", "Timeshift", "نقطهٔ بازگشت و پشتیبان سیستم.", "system-software-install", "apt", "timeshift", "system"),
-    ("gufw", "GUFW", "مدیریت آتش‌دیر (firewall).", "security-high", "apt", "gufw", "system"),
-    ("gnome-disk-utility", "Discus", "مدیریت دیسک و درایو.", "drive-removable-media", "apt", "gnome-disk-utility", "system"),
-    ("gparted", "GParted", "تقسیم‌بندی درایو.", "gparted", "apt", "gparted", "system"),
-    ("stacer", "Stacer", "بهینه‌سازی و نظارت سیستم.", "com.stacer.app", "flathub", "com.stacer.app", "system"),
-    ("popsicle", "Popsicle", "سازندهٔ USB بوت‌پذیر.", "org.system76.Popsicle", "flathub", "org.system76.Popsicle", "system"),
-    ("htop", "htop", "مانیتور سیستم در ترمینال.", "utilities-system-monitor", "apt", "htop", "utilities"),
-    ("btop", "btop", "مانیتور سیستم زیبا در ترمینال.", "utilities-system-monitor", "apt", "btop", "utilities"),
-    ("neofetch", "Neofetch", "نمایش اطلاعات سیستم.", "utilities-terminal", "apt", "neofetch", "utilities"),
-    ("simple-scan", "Simple Scan", "اسکنر اسکنر و کپی.", "org.gnome.Skan", "flathub", "org.gnome.Skan", "utilities"),
-    ("debtags", "Debtags", "برچسب‌گذاری فایل‌ها.", "system-file-manager", "apt", "debtags", "utilities"),
+    ("python3", "Python 3", "زبان برنامه‌نویسی پایتون.", "developer", "apt", "python3", "development"),
+    ("git", "Git", "سیستم کنترل نسخه.", "developer", "apt", "git", "development"),
+    ("nodejs", "Node.js", "محیط اجرای جاوااسکریپت.", "developer", "apt", "nodejs", "development"),
+    ("golang", "Go", "زبان برنامه‌نویسی گو.", "developer", "apt", "golang", "development"),
+    ("rustc", "Rust", "زبان برنامه‌نویسی راست.", "developer", "apt", "rustc", "development"),
+    ("build-essential", "Build tools", "زنجیرهٔ کامپایلر C/C++.", "developer", "apt", "build-essential", "development"),
+    ("timeshift", "Timeshift", "نقطهٔ بازگشت و پشتیبان سیستم.", "backup", "apt", "timeshift", "system"),
+    ("gufw", "GUFW", "مدیریت آتش‌دیر (firewall).", "security", "apt", "gufw", "system"),
+    ("gnome-disk-utility", "Discus", "مدیریت دیسک و درایو.", "disk", "apt", "gnome-disk-utility", "system"),
+    ("gparted", "GParted", "تقسیم‌بندی درایو.", "disk", "apt", "gparted", "system"),
+    ("stacer", "Stacer", "بهینه‌سازی و نظارت سیستم.", "settings", "flathub", "com.stacer.app", "system"),
+    ("popsicle", "Popsicle", "سازندهٔ USB بوت‌پذیر.", "installer", "flathub", "org.system76.Popsicle", "system"),
+    ("htop", "htop", "مانیتور سیستم در ترمینال.", "monitor", "apt", "htop", "utilities"),
+    ("btop", "btop", "مانیتور سیستم زیبا در ترمینال.", "monitor", "apt", "btop", "utilities"),
+    ("neofetch", "Neofetch", "نمایش اطلاعات سیستم.", "terminal", "apt", "neofetch", "utilities"),
+    ("simple-scan", "Simple Scan", "اسکنر اسکنر و کپی.", "screenshot", "flathub", "org.gnome.Skan", "utilities"),
+    ("debtags", "Debtags", "برچسب‌گذاری فایل‌ها.", "tag", "apt", "debtags", "utilities"),
 ]
 
 FEATURED = "brave"
@@ -222,11 +222,14 @@ class Store:
         st = self.state.get(rid, "idle")
         for btn in self.buttons.get(rid, []):
             card = btn.get_parent()
-            for c in ("simorgh-loading", "simorgh-success", "state-error"):
-                if card is not None:
+            ctx = btn.get_style_context()
+            for c in ("suggested-action", "simorgh-success", "simorgh-loading",
+                      "state-error", "store-btn"):
+                ctx.remove_class(c)
+            if card is not None:
+                for c in ("simorgh-loading", "simorgh-success", "state-error"):
                     card.get_style_context().remove_class(c)
-                btn.get_style_context().remove_all()
-                btn.get_style_context().add_class("store-btn")
+            ctx.add_class("store-btn")
             if st == "idle":
                 if rid in self.installed:
                     btn.set_label("نصب شده")

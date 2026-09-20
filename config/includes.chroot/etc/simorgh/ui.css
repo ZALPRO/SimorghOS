@@ -124,6 +124,6 @@ overshoot.top { background: none; }
 .settings-row { padding: 6px 0; }
 .settings-k { color: @subtext; font-weight: 600; }
 .settings-v { color: @text; }
-.wall-thumb { border-radius: 12px; border: 2px solid alpha(@overlay, .8); overflow: hidden; }
+.wall-thumb { border-radius: 12px; border: 2px solid alpha(@overlay, .8); }
 .wall-thumb:hover { border-color: alpha(@accent, .7); }
-.wall-active { border-color: @accent !important; box-shadow: 0 0 0 3px alpha(@accent, .3); }
+.wall-active { border-color: @accent; box-shadow: 0 0 0 3px alpha(@accent, .3); }
