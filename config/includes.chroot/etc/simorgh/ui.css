@@ -81,3 +81,33 @@ tab:hover { color: @text; }
 
 scrolledwindow { background: transparent; }
 overshoot.top { background: none; }
+
+/* ── simorgh-store ─────────────────────────────────────────────── */
+.store-card {
+    background: alpha(@overlay, 0.55);
+    border: 1px solid alpha(@overlay, 0.7);
+    border-radius: 16px;
+    padding: 12px;
+    transition: all .22s cubic-bezier(.25,1,.5,1);
+}
+.store-card:hover {
+    background: alpha(@overlay, 0.8);
+    border-color: alpha(@accent, 0.55);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+}
+.store-name { font-weight: 700; font-size: 12.5pt; color: @text; }
+.store-desc { color: @subtext; font-size: 9.5pt; min-height: 40px; }
+.store-src {
+    color: @accent; font-size: 8.5pt; font-weight: 700;
+    background: alpha(@accent, 0.14);
+    border-radius: 8px; padding: 1px 7px;
+}
+.store-btn { min-height: 30px; font-weight: 600; }
+.pill {
+    border-radius: 999px; padding: 4px 14px;
+    background: alpha(@overlay, 0.5); color: @subtext;
+    transition: all .18s ease;
+}
+.pill:hover { background: alpha(@overlay, 0.9); color: @text; }
+.pill-active { background: @accent; color: @bg; font-weight: 700; }
+.pill-active:hover { background: @accent; color: @bg; }

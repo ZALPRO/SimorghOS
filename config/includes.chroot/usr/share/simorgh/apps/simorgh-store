@@ -1,0 +1,318 @@
+#!/usr/bin/env python3
+"""simorgh-store — SimorghOS app store.
+
+A single, professional place to search and install anything:
+  * Debian (apt) packages
+  * Flathub (flatpak) apps
+
+Search, category filters, a featured banner, and a card grid with a real
+install state machine (idle → installing → installed / failed) so the user
+can add any application to the system.
+"""
+import os
+import sys
+
+sys.path.insert(0, "/usr/share/simorgh")
+import ui  # noqa: E402
+
+from gi.repository import Gtk  # noqa: E402
+
+# ── curated catalog ────────────────────────────────────────────────────────
+# (id, name, desc, icon, source, pkg, category)
+CAT = [
+    ("all", "همه"), ("system", "سیستم"), ("productivity", "تولیدکنندگی"),
+    ("media", "رسانه"), ("internet", "اینترنت"),
+    ("development", "برنامه‌نویسی"), ("graphics", "تصویر"), ("utilities", "ابزارها"),
+]
+
+CATALOG = [
+    ("brave", "Brave Browser", "وب‌گشتگر سریع با بلاکر تبلیغات و ردیاب‌ها.", "web-browser", "apt", "brave-browser", "internet"),
+    ("firefox", "Mozilla Firefox", "وب‌گشتگر سریع و امن با محافظت از حریم خصوصی.", "web-browser", "apt", "firefox", "internet"),
+    ("thunderbird", "Thunderbird", "مشترای ایمیل و تقویم از موزیلا.", "mail", "apt", "thunderbird", "internet"),
+    ("vivaldi", "Vivaldi", "مرورگر قدرتمند و کاملاً شخصی‌سازی‌پذیر.", "web-browser", "flathub", "com.vivaldi.Vivaldi", "internet"),
+    ("telegram", "Telegram", "پیام‌رسان تلگرام.", "org.telegram.desktop", "flathub", "org.telegram.desktop", "internet"),
+    ("signal", "Signal", "پیام‌رسان امن.", "org.signal", "flathub", "org.signal.desktop", "internet"),
+    ("element", "Element", "کلاینت Matrix برای چت و تماس.", "io.element", "flathub", "io.element", "internet"),
+    ("wireshark", "Wireshark", "تحلیل ترافیک شبکه.", "org.wireshark.Wireshark", "flathub", "org.wireshark.Wireshark", "internet"),
+    ("filezilla", "FileZilla", "انتقال فایل FTP/SFTP.", "filezilla", "apt", "filezilla", "internet"),
+    ("transmission", "Transmission", "کلاینت بیت‌تورنت.", "transmission-gtk", "apt", "transmission-gtk", "internet"),
+    ("libreoffice", "LibreOffice", "سریهٔ آفیس: کلم، کلس، ایمی و…", "x-office-document", "apt", "libreoffice", "productivity"),
+    ("onlyoffice", "ONLYOFFICE", "سریهٔ آفیس سازگار با Office.", "ru.onlyoffice.desktopeditors", "flathub", "ru.onlyoffice.desktopeditors", "productivity"),
+    ("calibre", "Calibre", "مدیریت کتاب الکترونیکی.", "calibre", "apt", "calibre", "productivity"),
+    ("org.freedesktop", "Notes", "یادداشت‌های سریع.", "text-editor", "apt", "org", "productivity"),
+    ("gimp", "GIMP", "تدوین و ویرایش تصویر حرفه‌ای.", "graphics-gimp", "apt", "gimp", "graphics"),
+    ("inkscape", "Inkscape", "طراحی برداری (SVG) متن‌باز.", "applications-graphics", "apt", "inkscape", "graphics"),
+    ("krita", "Krita", "نقاشی دیجیتال و کمیک.", "com.kde.krita", "flathub", "org.kde.krita", "graphics"),
+    ("blender", "Blender", "مدل‌سازی سه‌بعدی و انیمیشن.", "blender", "apt", "blender", "graphics"),
+    ("vlc", "VLC", "پخش‌کنندهٔ رسانهٔ همه‌چیز.", "vlc", "apt", "vlc", "media"),
+    ("kodi", "Kodi", "مرکز رسانه و تلویزیون خانگی.", "tv", "apt", "kodi", "media"),
+    ("obs", "OBS Studio", "استریم و ضبط صفحه.", "org.obsproject.OBS", "flathub", "com.obsproject.Studio", "media"),
+    ("kdenlive", "Kdenlive", "تدوین ویرایش ویدیو.", "org.kde.kdenlive", "flathub", "org.kde.kdenlive", "media"),
+    ("audacity", "Audacity", "تدوین صدا.", "org.audacityteam.Audacity", "flathub", "org.audacityteam.Audacity", "media"),
+    ("audacious", "Audacious", "پخش‌کنندهٔ سبک.", "multimedia-audio-player", "apt", "audacious", "media"),
+    ("vscode", "VS Code", "ویرایشگر و محیط برنامه‌نویسی.", "code", "apt", "code", "development"),
+    ("vscodium", "VSCodium", "VS Code بدون ردیابی (متن‌باز).", "com.vscodium.codium", "flathub", "com.vscodium.codium", "development"),
+    ("gedit", "gedit", "ویرایشگر متن ساده.", "text-editor", "apt", "gedit", "development"),
+    ("python3", "Python 3", "زبان برنامه‌نویسی پایتون.", "utilities-terminal", "apt", "python3", "development"),
+    ("git", "Git", "سیستم کنترل نسخه.", "emblem-symbolic-link", "apt", "git", "development"),
+    ("nodejs", "Node.js", "محیط اجرای جاوااسکریپت.", "nodejs", "apt", "nodejs", "development"),
+    ("golang", "Go", "زبان برنامه‌نویسی گو.", "applications-engineering", "apt", "golang", "development"),
+    ("rustc", "Rust", "زبان برنامه‌نویسی راست.", "applications-engineering", "apt", "rustc", "development"),
+    ("build-essential", "Build tools", "زنجیرهٔ کامپایلر C/C++.", "applications-engineering", "apt", "build-essential", "development"),
+    ("timeshift", "Timeshift", "نقطهٔ بازگشت و پشتیبان سیستم.", "system-software-install", "apt", "timeshift", "system"),
+    ("gufw", "GUFW", "مدیریت آتش‌دیر (firewall).", "security-high", "apt", "gufw", "system"),
+    ("gnome-disk-utility", "Discus", "مدیریت دیسک و درایو.", "drive-removable-media", "apt", "gnome-disk-utility", "system"),
+    ("gparted", "GParted", "تقسیم‌بندی درایو.", "gparted", "apt", "gparted", "system"),
+    ("stacer", "Stacer", "بهینه‌سازی و نظارت سیستم.", "com.stacer.app", "flathub", "com.stacer.app", "system"),
+    ("popsicle", "Popsicle", "سازندهٔ USB بوت‌پذیر.", "org.system76.Popsicle", "flathub", "org.system76.Popsicle", "system"),
+    ("htop", "htop", "مانیتور سیستم در ترمینال.", "utilities-system-monitor", "apt", "htop", "utilities"),
+    ("btop", "btop", "مانیتور سیستم زیبا در ترمینال.", "utilities-system-monitor", "apt", "btop", "utilities"),
+    ("neofetch", "Neofetch", "نمایش اطلاعات سیستم.", "utilities-terminal", "apt", "neofetch", "utilities"),
+    ("simple-scan", "Simple Scan", "اسکنر اسکنر و کپی.", "org.gnome.Skan", "flathub", "org.gnome.Skan", "utilities"),
+    ("debtags", "Debtags", "برچسب‌گذاری فایل‌ها.", "system-file-manager", "apt", "debtags", "utilities"),
+]
+
+FEATURED = "brave"
+SRC_LABEL = {"apt": "Debian", "flathub": "Flathub"}
+
+
+class Store:
+    def __init__(self):
+        self.app = ui.init("Simorgh Store", 1040, 680)
+        self.app.get_style_context().add_class("simorgh")
+        self.installed = set()
+        self.state = {}
+        self.buttons = {}
+        self.cat = "all"
+        self.query = ""
+        hb = ui.header(self.app, "Simorgh Store", "برنامه‌ها و ابزارها را نصب کنید", "system-software-install")
+        self._build(hb)
+        self.refresh_installed()
+        self.app.show_all()
+
+    # ── layout ────────────────────────────────────────────────────────────
+    def _build(self, hb):
+        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        self.app.add(root)
+
+        sw = Gtk.SearchEntry()
+        sw.set_placeholder_text("جست‌وجو در برنامه‌ها…")
+        sw.connect("search-changed", self._on_search)
+        hb.pack_end(sw)
+
+        root.pack_start(self._featured(), False, False, 0)
+        root.pack_start(self._pills(), False, False, 0)
+
+        sc = Gtk.ScrolledWindow()
+        sc.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        root.pack_start(sc, True, True, 0)
+        self.flow = Gtk.FlowBox()
+        self.flow.set_selection_mode(Gtk.SelectionMode.NONE)
+        self.flow.set_min_children_per_line(3)
+        self.flow.set_max_children_per_line(5)
+        self.flow.set_column_spacing(12)
+        self.flow.set_row_spacing(12)
+        self.flow.set_homogeneous(True)
+        self.flow.set_margin_start(14)
+        self.flow.set_margin_end(14)
+        self.flow.set_margin_top(12)
+        self.flow.set_margin_bottom(14)
+        sc.add(self.flow)
+
+    def _featured(self):
+        b = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=16)
+        for k, v in (("margin-start", 16), ("margin-end", 16), ("margin-top", 12), ("margin-bottom", 4)):
+            setattr(b, "set_" + k, v)
+        b.get_style_context().add_class("simorgh-card")
+        f = next((r for r in CATALOG if r[0] == FEATURED), CATALOG[0])
+        img = Gtk.Image.new_from_icon_name(f[3], Gtk.IconSize.DIALOG)
+        info = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        name = Gtk.Label(label=f"پیشنهاد ویژه — {f[1]}", xalign=0)
+        name.get_style_context().add_class("title")
+        desc = Gtk.Label(label=f[2], xalign=0, wrap=True)
+        desc.get_style_context().add_class("subtitle")
+        desc.set_max_width_chars(70)
+        info.pack_start(name, False, False, 0)
+        info.pack_start(desc, False, False, 0)
+        btn = Gtk.Button(label="نصب")
+        btn.get_style_context().add_class("suggested-action")
+        btn.connect("clicked", lambda *_: self.install(FEATURED))
+        self.buttons.setdefault(FEATURED, []).append(btn)
+        info.pack_end(btn, False, False, 0)
+        b.pack_start(img, False, False, 0)
+        b.pack_start(info, True, True, 0)
+        return b
+
+    def _pills(self):
+        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        for k, v in (("margin-start", 16), ("margin-end", 16), ("margin-top", 10), ("margin-bottom", 10)):
+            setattr(box, "set_" + k, v)
+        self.pill_btns = {}
+        for key, fa in CAT:
+            btn = Gtk.Button(label=fa)
+            btn.set_relief(Gtk.ReliefStyle.NONE)
+            btn.get_style_context().add_class("pill")
+            if key == self.cat:
+                btn.get_style_context().add_class("pill-active")
+            btn.connect("clicked", lambda w, k=key: self._set_cat(k))
+            box.pack_start(btn, False, False, 0)
+            self.pill_btns[key] = btn
+        return box
+
+    def _set_cat(self, key):
+        self.cat = key
+        for k, b in self.pill_btns.items():
+            b.get_style_context().remove_class("pill-active")
+            if k == key:
+                b.get_style_context().add_class("pill-active")
+        self.populate()
+
+    def _on_search(self, entry):
+        self.query = entry.get_text().strip().lower()
+        self.populate()
+
+    # ── grid ───────────────────────────────────────────────────────────────
+    def populate(self):
+        for c in self.flow.get_children():
+            self.flow.remove(c)
+        # keep only the persistent featured banner button; cards re-register below
+        feat = self.buttons.pop(FEATURED, [])
+        self.buttons = {FEATURED: feat}
+        for row in CATALOG:
+            rid, name, desc, icon, source, pkg, cat = row
+            if self.cat != "all" and cat != self.cat:
+                continue
+            if self.query and self.query not in (name + " " + desc + " " + pkg).lower():
+                continue
+            self.flow.add(self._card(rid, name, desc, icon, source))
+        self.flow.show_all()
+
+    def _card(self, rid, name, desc, icon, source):
+        card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        card.get_style_context().add_class("store-card")
+        card.set_size_request(190, -1)
+
+        top = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        img = Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.DIALOG)
+        top.pack_start(img, False, False, 0)
+        src = Gtk.Label(label=SRC_LABEL.get(source, source), xalign=0)
+        src.get_style_context().add_class("store-src")
+        top.pack_start(src, False, False, 0)
+        card.pack_start(top, False, False, 0)
+
+        nm = Gtk.Label(label=name, xalign=0, wrap=True)
+        nm.get_style_context().add_class("store-name")
+        nm.set_max_width_chars(26)
+        card.pack_start(nm, False, False, 0)
+
+        de = Gtk.Label(label=desc, xalign=0, wrap=True)
+        de.get_style_context().add_class("store-desc")
+        de.set_max_width_chars(44)
+        card.pack_start(de, True, True, 0)
+
+        btn = Gtk.Button(label="نصب")
+        btn.connect("clicked", lambda w, r=rid: self.install(r))
+        self.buttons.setdefault(rid, []).append(btn)
+        card.pack_start(btn, False, False, 0)
+        self._style(rid)
+        return card
+
+    # ── install state machine ──────────────────────────────────────────────
+    def _style(self, rid):
+        st = self.state.get(rid, "idle")
+        for btn in self.buttons.get(rid, []):
+            card = btn.get_parent()
+            for c in ("simorgh-loading", "simorgh-success", "state-error"):
+                if card is not None:
+                    card.get_style_context().remove_class(c)
+                btn.get_style_context().remove_all()
+                btn.get_style_context().add_class("store-btn")
+            if st == "idle":
+                if rid in self.installed:
+                    btn.set_label("نصب شده")
+                    btn.set_sensitive(False)
+                    btn.get_style_context().add_class("simorgh-success")
+                    if card is not None:
+                        card.get_style_context().add_class("simorgh-success")
+                else:
+                    btn.set_label("نصب")
+                    btn.set_sensitive(True)
+                    btn.get_style_context().add_class("suggested-action")
+            elif st == "working":
+                btn.set_label("در حال نصب…")
+                btn.set_sensitive(False)
+                btn.get_style_context().add_class("simorgh-loading")
+                if card is not None:
+                    card.get_style_context().add_class("simorgh-loading")
+            elif st == "done":
+                self.installed.add(rid)
+                btn.set_label("نصب شده ✓")
+                btn.set_sensitive(False)
+                btn.get_style_context().add_class("simorgh-success")
+                if card is not None:
+                    card.get_style_context().add_class("simorgh-success")
+            elif st == "fail":
+                btn.set_label("تلاش دوباره")
+                btn.set_sensitive(True)
+                btn.get_style_context().add_class("state-error")
+                if card is not None:
+                    card.get_style_context().add_class("state-error")
+
+    def refresh_installed(self):
+        import subprocess, threading
+
+        def work():
+            apt, flat = set(), set()
+            try:
+                out = subprocess.run(["dpkg-query", "-W", "-f", "${Package}\n"],
+                                     capture_output=True, text=True).stdout
+                apt = set(out.split())
+            except Exception:
+                pass
+            try:
+                out = subprocess.run(["flatpak", "list", "--app", "--columns=application"],
+                                     capture_output=True, text=True).stdout
+                flat = {x.strip() for x in out.splitlines() if x.strip()}
+            except Exception:
+                pass
+            from gi.repository import GLib
+            GLib.idle_add(self._installed_ready, apt, flat)
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _installed_ready(self, apt, flat):
+        for rid, name, desc, icon, source, pkg, cat in CATALOG:
+            if source == "apt" and pkg in apt:
+                self.installed.add(rid)
+            elif source == "flathub" and pkg in flat:
+                self.installed.add(rid)
+        self.populate()
+
+    def install(self, rid):
+        row = next((r for r in CATALOG if r[0] == rid), None)
+        if not row or self.state.get(rid) == "working":
+            return
+        self.state[rid] = "working"
+        self._style(rid)
+        source, pkg = row[4], row[5]
+        if source == "apt":
+            ui.pkexec(f"DEBIAN_FRONTEND=noninteractive apt-get install -y {pkg}",
+                      done=lambda ok, out, r=rid: self._done(r, ok))
+        elif source == "flathub":
+            ui.run_cmd(["flatpak", "install", "-y", "flathub", pkg],
+                       done=lambda ok, out, r=rid: self._done(r, ok))
+        else:
+            self._done(rid, True)
+
+    def _done(self, rid, ok):
+        self.state[rid] = "done" if ok else "fail"
+        self._style(rid)
+
+
+def main():
+    Store()
+    Gtk.main()
+
+
+if __name__ == "__main__":
+    main()
