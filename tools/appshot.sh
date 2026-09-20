@@ -1,15 +1,14 @@
 #!/usr/bin/env bash
-# SimorghOS — capture REAL screenshots from a built ISO (QEMU TCG + QMP).
-# usage: sudo tools/screenshot.sh <iso> <out.png> [boot_seconds] [extra_append] [keys...]
-# After boot_seconds it takes up to 6 screendumps at 150s intervals (lavapipe
-# first paint under TCG is slow) and keeps the last one.
+# SimorghOS — screenshot a specific app from a built ISO.
+# usage: sudo tools/appshot.sh <iso> <out.png> <app-query> [boot_seconds] [extra_append]
+# Boots, waits for the desktop, opens the rofi launcher (Super+D), types the
+# app query, presses Enter, waits, then screendumps via QMP.
 set -euo pipefail
 ISO="${1:?iso path}"
 OUT="${2:?output png}"
-WAIT="${3:-240}"
-EXTRA="${4:-}"
-shift 4 || true
-KEYS="$*"
+QUERY="${3:?app query, e.g. Files}"
+WAIT="${4:-900}"
+EXTRA="${5:-}"
 
 W=$(mktemp -d)
 trap 'rm -rf "$W"' EXIT
@@ -17,7 +16,6 @@ xorriso -osirrox on -indev "$ISO" \
     -extract /live/vmlinuz "$W/vmlinuz" \
     -extract /live/initrd.img "$W/initrd" >/dev/null 2>&1
 
-# light by default; override QMEM/QCPU/QPIN for beefier hosts
 QMEM="${QMEM:-1024}"; QCPU="${QCPU:-1}"; QPIN="${QPIN:-1}"
 PIN="taskset -c $QPIN"; command -v taskset >/dev/null || PIN=""
 $PIN nice -n 19 qemu-system-x86_64 -m "$QMEM" -smp "$QCPU" -cpu max \
@@ -28,14 +26,14 @@ $PIN nice -n 19 qemu-system-x86_64 -m "$QMEM" -smp "$QCPU" -cpu max \
     -qmp unix:"$W/qmp.sock",server,nowait \
     -serial file:"$W/serial.log" &
 QPID=$!
+cp "$W/serial.log" "${OUT}.serial" 2>/dev/null || true
 
-echo "waiting ${WAIT}s for the desktop…"
+echo "waiting ${WAIT}s for the desktop, then opening '$QUERY'…"
 sleep "$WAIT"
 
-python3 - "$W/qmp.sock" "$W/shot.ppm" "$KEYS" <<'EOF'
+python3 - "$W/qmp.sock" "$W/shot.ppm" "$QUERY" <<'EOF'
 import json, socket, sys, time
-sock, out, keystr = sys.argv[1], sys.argv[2], sys.argv[3]
-keys = keystr.split()
+sock, out, query = sys.argv[1], sys.argv[2], sys.argv[3]
 s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 s.connect(sock)
 f = s.makefile('rb')
@@ -47,15 +45,22 @@ def cmd(o):
             return r
 json.loads(f.readline())
 cmd({"execute": "qmp_capabilities"})
-if keys:
-    cmd({"execute": "send-key", "arguments": {"keys": [{"key": k} for k in keys]}})
-    time.sleep(6)
-# up to 6 dumps, 150s apart; last one wins
-for i in range(6):
-    if i:
-        time.sleep(150)
-    cmd({"execute": "screendump", "arguments": {"filename": out}})
-    print(f"screendump {i + 1}/6 ok", flush=True)
+def tap(keys, wait=1.5):
+    cmd({"execute": "send-key", "arguments": {"keys": keys}})
+    time.sleep(wait)
+tap([{"key": "meta_l"}, {"key": "d"}], 10)          # rofi drun
+for ch in query:
+    k = ch.lower()
+    if k == " ":
+        tap([{"key": "space"}], 0.4)
+    elif ch.isdigit():
+        tap([{"key": k}], 0.4)
+    else:
+        tap([{"key": k}], 0.4)
+time.sleep(3)
+tap([{"key": "ret"}], 12)                            # launch, let it render
+cmd({"execute": "screendump", "arguments": {"filename": out}})
+print("screendump ok")
 EOF
 
 kill $QPID 2>/dev/null || true

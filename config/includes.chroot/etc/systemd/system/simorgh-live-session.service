@@ -1,0 +1,21 @@
+# SimorghOS — live media: boot straight into the desktop session.
+# Installed systems keep LightDM + greeter; live boots skip it entirely
+# (much faster, no autologin round-trip).
+[Unit]
+Description=SimorghOS live desktop session
+ConditionKernelCommandLine=boot=live
+After=multi-user.target lightdm.service
+Conflicts=lightdm.service
+
+[Service]
+Type=simple
+User=user
+Environment=HOME=/home/user
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+Environment=LANG=en_US.UTF-8
+ExecStartPre=+/bin/systemctl stop lightdm.service
+ExecStart=/usr/share/simorgh/bin/simorgh-session
+TimeoutStartSec=infinity
+
+[Install]
+WantedBy=graphical.target

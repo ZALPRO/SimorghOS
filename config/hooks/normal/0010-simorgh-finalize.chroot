@@ -47,6 +47,9 @@ for svc in NetworkManager.service bluetooth.service accounts-daemon.service \
 done
 ln -sf /etc/systemd/system/simorgh-live-autologin.service \
        /etc/systemd/system/multi-user.target.wants/simorgh-live-autologin.service || true
+mkdir -p /etc/systemd/system/graphical.target.wants
+ln -sf /etc/systemd/system/simorgh-live-session.service \
+       /etc/systemd/system/graphical.target.wants/simorgh-live-session.service || true
 # unattended security upgrades by default
 if [ -d /etc/apt/apt.conf.d ]; then
     cat > /etc/apt/apt.conf.d/20simorgh-autoupgrade <<'EOF'
