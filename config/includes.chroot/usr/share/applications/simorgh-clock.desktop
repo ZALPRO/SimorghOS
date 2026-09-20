@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Clock
+Name[fa]=ساعت
+Comment=World clock, alarms, timer, stopwatch
+Exec=simorgh-clock
+Icon=clock
+Terminal=false
+Categories=Simorgh;Accessories;

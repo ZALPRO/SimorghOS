@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=User
+Name[fa]=کاربر
+Comment=Profile, lock, switch user, sign out
+Exec=simorgh-user
+Icon=user
+Terminal=false
+Categories=Simorgh;System;

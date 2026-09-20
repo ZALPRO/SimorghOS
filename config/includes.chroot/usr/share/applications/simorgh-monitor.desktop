@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=System Monitor
+Name[fa]=پایش سیستم
+Comment=CPU, RAM, GPU, disk, network charts
+Exec=gnome-system-monitor
+Icon=monitor
+Terminal=false
+Categories=Simorgh;System;

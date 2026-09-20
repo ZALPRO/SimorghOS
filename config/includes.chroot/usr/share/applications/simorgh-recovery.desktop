@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Recovery
+Name[fa]=بازیابی
+Comment=Repair, restore, backup, reset, boot
+Exec=simorgh-recovery
+Icon=restore
+Terminal=false
+Categories=Simorgh;Settings;

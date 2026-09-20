@@ -83,3 +83,13 @@ tooltip label { color: @text; }
     padding: 0 14px;
     font-weight: 600;
 }
+
+/* ── micro-interactions: hover / press / focus / disabled ───────── */
+#workspaces button:active, button:active { background: alpha(@accent, 0.35); }
+#network:hover, #bluetooth:hover, #pulseaudio:hover, #cpu:hover, #memory:hover,
+#clock:hover, #custom-jdate:hover, #tray *:hover, #window:hover {
+    background: alpha(@overlay, 0.95);
+    color: @accent;
+}
+*:disabled { color: alpha(@subtext, 0.45); background: transparent; }
+*:focus { outline: 2px solid alpha(@accent, 0.6); outline-offset: 1px; }

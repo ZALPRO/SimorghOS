@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=PDF Viewer
+Name[fa]=نمایش PDF
+Comment=Pages, search, zoom, annotate (evince)
+Exec=evince %U
+Icon=pdf
+Terminal=false
+Categories=Simorgh;Office;

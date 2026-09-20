@@ -1,0 +1,84 @@
+#!/usr/bin/env python3
+"""SimorghOS — Recovery: repair, restore points, reset, backup, boot options."""
+import subprocess
+import sys
+
+sys.path.insert(0, "/usr/share/simorgh")
+from gi.repository import Gtk  # noqa: E402
+from ui import card, header, init, label, pkexec, run_cmd  # noqa: E402
+
+
+class Rec:
+    def __init__(self):
+        self.win = init("Recovery", 640, 680)
+        header(self.win, "Recovery", icon="restore")
+        sc = Gtk.ScrolledWindow()
+        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        root.set_margin_top(8)
+        sc.add(root)
+
+        root.pack_start(self.blk("Repair", "repair",
+                                 "Fix broken packages and half-configured updates.",
+                                 ["apt-get", "install", "--fix-broken", "-y", "&&",
+                                  "dpkg", "--configure", "-a"]), False, False, 6)
+        root.pack_start(self.blk("Restore", "restore",
+                                 "Pick a Timeshift snapshot and roll back.", None), False, False, 6)
+        root.pack_start(self.blk("Backup", "backup",
+                                 "Create a restore point right now.",
+                                 ["timeshift", "--create", "--comments", "'SimorghOS manual snapshot'"]),
+                        False, False, 6)
+        root.pack_start(self.blk("Boot Options", "boot",
+                                 "Choose the default GRUB entry and timeout.", None), False, False, 6)
+        root.pack_start(self.blk("Reset", "reset",
+                                 "Reinstall SimorghOS keeping nothing — last resort.", None),
+                        False, False, 6)
+        self.log = Gtk.TextView()
+        self.log.set_editable(False)
+        self.log.set_monospace(True)
+        self.log.set_wrap_mode(Gtk.WrapMode.CHAR)
+        self.log.set_size_request(-1, 160)
+        root.pack_start(self.log, False, False, 8)
+        self.win.add(sc)
+
+    def note(self, text):
+        buf = self.log.get_buffer()
+        buf.set_text(buf.get_text(buf.get_start_iter(), buf.get_end_iter(), False) + text)
+
+    def blk(self, title, icon, desc, argv):
+        c = card()
+        row = Gtk.Box(spacing=10)
+        row.pack_start(Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.DIALOG), False, False, 4)
+        col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        col.pack_start(label(title, bold=True), False, False, 0)
+        col.pack_start(label(desc), False, False, 0)
+        row.pack_start(col, True, True, 6)
+        btn = Gtk.Button(label="Open")
+        btn.connect("clicked", lambda b: self.act(title, argv))
+        row.pack_end(btn, False, False, 6)
+        c.pack_start(row, False, False, 4)
+        return c
+
+    def act(self, title, argv):
+        if title == "Restore":
+            run_cmd(["timeshift", "--list"], lambda ok, out: (self.note(out),
+                      pkexec(["timeshift-gtk"]) if ok else None))
+            subprocess.Popen(["pkexec", "timeshift-gtk"])
+        elif title == "Reset":
+            d = Gtk.MessageDialog(self.win, 0, Gtk.MessageType.WARNING, Gtk.ButtonsType.OK_CANCEL,
+                                  "Reset will erase everything and reinstall SimorghOS.\nContinue?")
+            if d.run() == Gtk.ResponseType.OK:
+                subprocess.Popen(["pkexec", "calamares"])
+            d.destroy()
+        elif title == "Boot Options":
+            subprocess.Popen(["pkexec", "sh", "-c",
+                              "nano /etc/default/grub && update-grub"])
+        elif argv:
+            pkexec(argv, lambda ok, out: self.note(out[-3000:]))
+
+    def run(self):
+        self.win.show_all()
+        Gtk.main()
+
+
+if __name__ == "__main__":
+    Rec().run()

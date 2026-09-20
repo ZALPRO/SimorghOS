@@ -1,0 +1,91 @@
+#!/usr/bin/env python3
+"""SimorghOS — About: logo, name, version, build, kernel, CPU, RAM, GPU, storage."""
+import os
+import shutil
+import sys
+
+sys.path.insert(0, "/usr/share/simorgh")
+from gi.repository import GLib, Gtk  # noqa: E402
+from ui import card, header, init, label  # noqa: E402
+
+LOGO = "/usr/share/pixmaps/simorgh.png"
+
+
+def kv(box, k, v):
+    row = Gtk.Box(spacing=10)
+    kl = label(k); kl.set_size_request(110, -1); kl.set_xalign(0)
+    kl.override_font(None) if False else None
+    row.pack_start(kl, False, False, 0)
+    row.pack_start(label(v), True, True, 0)
+    box.pack_start(row, False, False, 2)
+
+
+def main():
+    win = init("SimorghOS", 620, 660)
+    header(win, "About SimorghOS", icon="about")
+    sc = Gtk.ScrolledWindow()
+    root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+    root.set_margin_top(12)
+    sc.add(root)
+
+    top = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+    if os.path.exists(LOGO):
+        img = Gtk.Image.new_from_file(LOGO)
+        img.set_pixel_size(128)
+        img.set_halign(Gtk.Align.CENTER)
+        top.pack_start(img, False, False, 0)
+    t = label("SimorghOS", size=20, bold=True); t.set_xalign(.5)
+    s = label("the self-governing operating system — سیستم‌عامل خودمختار"); s.set_xalign(.5)
+    top.pack_start(t, False, False, 0)
+    top.pack_start(s, False, False, 6)
+    root.pack_start(top, False, False, 8)
+
+    info = card()
+
+    def rel(k):
+        for line in open("/etc/os-release"):
+            if line.startswith(k + "="):
+                return line.split("=", 1)[1].strip().strip('"')
+        return "?"
+
+    kv(info, "Version", rel("VERSION"))
+    kv(info, "Build", rel("VERSION_ID") + " / " + rel("VERSION_CODENAME"))
+
+    kv(info, "Kernel", os.uname().release)
+    cpu = "?"
+    for line in open("/proc/cpuinfo"):
+        if line.startswith("model name"):
+            cpu = line.split(":", 1)[1].strip()
+            break
+    kv(info, "CPU", cpu)
+    mem = "?"
+    for line in open("/proc/meminfo"):
+        if line.startswith("MemTotal"):
+            mem = f"{int(line.split()[1]) // 1024} MiB"
+    kv(info, "RAM", mem)
+    gpu = "?"
+    try:
+        for line in open("/sys/class/drm/card*/device/label", encoding="utf-8"):
+            gpu = line.strip()
+    except OSError:
+        pass
+    if gpu == "?":
+        r = GLib.spawn_command_line_sync("lspci")[2] or b""
+        for ln in r.decode(errors="ignore").splitlines():
+            if "VGA" in ln or "3D" in ln:
+                gpu = ln.split(": ", 1)[-1]
+                break
+    kv(info, "GPU", gpu)
+    du = shutil.disk_usage("/")
+    kv(info, "Storage", f"{du.used // 2**30} GiB used of {du.total // 2**30} GiB")
+    kv(info, "Desktop", "Hyprland (Wayland)")
+    root.pack_start(info, False, False, 8)
+    root.pack_start(label(""), False, False, 4)
+
+    win.add(sc)
+    win.show_all()
+    Gtk.main()
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Text Editor
+Name[fa]=ویرایشگر متن
+Comment=Tabs, find/replace, word count (geany)
+Exec=geany %U
+Icon=text-editor
+Terminal=false
+Categories=Simorgh;Development;

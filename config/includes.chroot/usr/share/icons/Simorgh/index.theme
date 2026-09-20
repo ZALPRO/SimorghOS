@@ -1,0 +1,17 @@
+[Icon Theme]
+Name=Simorgh
+Inherits=Papirus-Dark,breeze,Adwaita
+Directories=actions/scalable,apps/scalable
+
+[apps/scalable]
+Size=48
+Type=Scalable
+MinSize=16
+MaxSize=512
+
+[actions/scalable]
+Size=48
+Type=Scalable
+MinSize=16
+MaxSize=512
+

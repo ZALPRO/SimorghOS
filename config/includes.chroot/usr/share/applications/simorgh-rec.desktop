@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Screen Recorder
+Name[fa]=ضبط صفحه
+Comment=Record screen with audio & mic
+Exec=simorgh-rec
+Icon=recorder
+Terminal=false
+Categories=Simorgh;Accessories;

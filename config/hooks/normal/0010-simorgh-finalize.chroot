@@ -78,6 +78,9 @@ mkdir -p /usr/share/simorgh/plugins /usr/local/share/simorgh/plugins
 
 echo "Simorgh: exec bits, caches…"
 chmod -R +x /usr/share/simorgh/bin || true
+for f in /usr/share/simorgh/apps/simorgh-*; do
+    [ -f "$f" ] && chmod +x "$f" && ln -sf "$f" "/usr/bin/$(basename "$f")"
+done
 for d in /usr/share/icons/*; do
     [ -d "$d" ] && gtk-update-icon-caches "$d" 2>/dev/null || true
 done

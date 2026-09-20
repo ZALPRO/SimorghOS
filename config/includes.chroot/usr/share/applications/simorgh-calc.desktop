@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Calculator
+Name[fa]=ماشین‌حساب
+Comment=Basic, scientific, programmer, converter
+Exec=gnome-calculator
+Icon=calculator
+Terminal=false
+Categories=Simorgh;Accessories;

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Task Manager
+Name[fa]=مدیریت وظایف
+Comment=Processes, performance, resources
+Exec=gnome-system-monitor
+Icon=task-manager
+Terminal=false
+Categories=Simorgh;System;

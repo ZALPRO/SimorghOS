@@ -1,0 +1,63 @@
+#!/usr/bin/env python3
+"""SimorghOS — User menu: profile, account settings, lock, switch user, sign out."""
+import getpass
+import os
+import socket
+import subprocess
+import sys
+
+sys.path.insert(0, "/usr/share/simorgh")
+from gi.repository import Gtk  # noqa: E402
+from ui import header, init, label  # noqa: E402
+
+
+class UserMenu:
+    def __init__(self):
+        self.win = init("User", 420, 460)
+        header(self.win, "User", icon="user")
+        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        root.set_margin_top(10)
+        root.set_margin_start(14)
+        root.set_margin_end(14)
+
+        img = Gtk.Image.new_from_icon_name("user", Gtk.IconSize.DIALOG)
+        img.set_pixel_size(72)
+        root.pack_start(img, False, False, 6)
+        name = label(getpass.getuser(), size=16, bold=True)
+        name.set_xalign(.5)
+        root.pack_start(name, False, False, 2)
+        host = label(socket.gethostname() + " · SimorghOS")
+        host.set_xalign(.5)
+        root.pack_start(host, False, False, 8)
+
+        for name_, fn in [
+            ("Profile", self.profile),
+            ("Account Settings", self.account),
+            ("Lock", lambda: subprocess.Popen(["hyprlock"])),
+            ("Switch User", lambda: subprocess.Popen(["dm-tool", "switch-to-greeter"])),
+            ("Sign Out", lambda: subprocess.Popen(["hyprctl", "dispatch", "exit"])),
+        ]:
+            b = Gtk.Button(label=name_)
+            b.connect("clicked", lambda x, f=fn: f())
+            root.pack_start(b, False, False, 3)
+        self.win.add(root)
+
+    def profile(self):
+        import pwd
+        e = pwd.getpwnam(getpass.getuser())
+        d = Gtk.MessageDialog(self.win, 0, Gtk.MessageType.INFO, Gtk.ButtonsType.CLOSE,
+                              f"User: {e.pw_name}\nName: {e.pw_gecos or '—'}\n"
+                              f"Home: {e.pw_dir}\nShell: {e.pw_shell}\nUID: {e.pw_uid}")
+        d.run()
+        d.destroy()
+
+    def account(self):
+        subprocess.Popen(["simorgh-center"])
+
+    def run(self):
+        self.win.show_all()
+        Gtk.main()
+
+
+if __name__ == "__main__":
+    UserMenu().run()

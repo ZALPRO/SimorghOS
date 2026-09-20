@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Calendar
+Name[fa]=تقویم
+Comment=Jalali & Gregorian, events & reminders
+Exec=simorgh-calendar
+Icon=calendar
+Terminal=false
+Categories=Simorgh;Office;

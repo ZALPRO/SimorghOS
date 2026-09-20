@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Video Player
+Name[fa]=پخش ویدیو
+Comment=Subtitles, speed, fullscreen (mpv)
+Exec=mpv %U
+Icon=video
+Terminal=false
+Categories=Simorgh;AudioVideo;

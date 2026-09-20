@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Photos
+Name[fa]=تصاویر
+Comment=Albums, favorites, edit, filters
+Exec=simorgh-photos
+Icon=photos
+Terminal=false
+Categories=Simorgh;Graphics;

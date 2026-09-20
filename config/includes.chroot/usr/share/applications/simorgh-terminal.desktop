@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Terminal
+Name[fa]=پایانه
+Comment=Terminal with tabs & splits (kitty)
+Exec=kitty
+Icon=terminal
+Terminal=false
+Categories=Simorgh;System;

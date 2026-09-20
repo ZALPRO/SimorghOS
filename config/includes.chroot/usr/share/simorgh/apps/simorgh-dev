@@ -1,0 +1,83 @@
+#!/usr/bin/env python3
+"""SimorghOS — Developer Mode: toolchain on demand, logs, debugger, package tools."""
+import os
+import subprocess
+import sys
+
+sys.path.insert(0, "/usr/share/simorgh")
+from gi.repository import Gtk  # noqa: E402
+from ui import card, header, init, label, run_cmd  # noqa: E402
+
+DEV_PKGS = ["build-essential", "gdb", "strace", "valgrind", "git", "pkg-config",
+            "meson", "ninja-build", "cmake", "python3-dev", "rustc", "golang-go",
+            "nodejs", "npm", "flatpak-builder", "devscripts"]
+
+
+class Dev:
+    def __init__(self):
+        self.win = init("Developer Mode", 620, 640)
+        header(self.win, "Developer Mode", icon="developer")
+        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        root.set_margin_top(8)
+
+        c = card()
+        c.pack_start(label("Toolchain", bold=True), False, False, 2)
+        c.pack_start(label("Compilers (gcc/g++/rust/go/node), meson, ninja, cmake, gdb, "
+                           "strace, valgrind, flatpak-builder, devscripts."), False, False, 2)
+        self.state = label("")
+        c.pack_start(self.state, False, False, 2)
+        b = Gtk.Button(label="Install full toolchain")
+        b.get_style_context().add_class("suggested-action")
+        b.connect("clicked", lambda x: run_cmd(
+            ["pkexec", "apt-get", "install", "-y"] + DEV_PKGS,
+            lambda ok, out: self.state.set_text("installed ✔" if ok else out[-300:])))
+        b2 = Gtk.Button(label="Remove toolchain")
+        b2.connect("clicked", lambda x: run_cmd(
+            ["pkexec", "apt-get", "remove", "-y"] + DEV_PKGS,
+            lambda ok, out: self.state.set_text("removed" if ok else out[-300:])))
+        row = Gtk.Box(spacing=8)
+        row.pack_start(b, False, False, 4)
+        row.pack_start(b2, False, False, 4)
+        c.pack_start(row, False, False, 6)
+        root.pack_start(c, False, False, 6)
+
+        c2 = card()
+        c2.pack_start(label("Tools", bold=True), False, False, 2)
+        for name, argv in [
+            ("Terminal", ["kitty"]),
+            ("Live system logs", ["kitty", "--title", "logs", "sh", "-c",
+                                   "journalctl -f --output=cat"]),
+            ("Kernel logs", ["kitty", "--title", "dmesg", "sh", "-c", "dmesg -w"]),
+            ("Debugger (gdb)", ["kitty", "sh", "-c", "gdb || echo 'install toolchain first'"]),
+            ("Process explorer (btop)", ["kitty", "btop"]),
+            ("Build an ISO of SimorghOS", ["kitty", "sh", "-c",
+                                           "echo 'git clone … && sudo -E ./build.sh'"]),
+        ]:
+            bb = Gtk.Button(label=name)
+            bb.connect("clicked", lambda x, a=argv: subprocess.Popen(a))
+            c2.pack_start(bb, False, False, 3)
+        root.pack_start(c2, False, False, 6)
+
+        c3 = card()
+        c3.pack_start(label("API / SDK", bold=True), False, False, 2)
+        c3.pack_start(label("• `simorgh` hub: drop an executable in ~/.config/simorgh/plugins/ "
+                           "to extend the OS with new commands."), False, False, 2)
+        c3.pack_start(label("• Python jalaali engine: /usr/share/simorgh/jalaali.py"), False, False, 2)
+        c3.pack_start(label("• Theme API: simorgh-set-theme accepts new theme blocks."), False, False, 2)
+        c3.pack_start(label("• Wayland: xdg-desktop-portal-hyprland for screen share & camera."),
+                     False, False, 2)
+        root.pack_start(c3, False, False, 6)
+        self.win.add(root)
+        self.check_state()
+
+    def check_state(self):
+        has = os.path.exists("/usr/bin/gdb")
+        self.state.set_text("toolchain installed" if has else "toolchain not installed yet")
+
+    def run(self):
+        self.win.show_all()
+        Gtk.main()
+
+
+if __name__ == "__main__":
+    Dev().run()

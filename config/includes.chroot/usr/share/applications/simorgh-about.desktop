@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=About SimorghOS
+Name[fa]=دربارهٔ سیمرغ
+Comment=Version, kernel, CPU, RAM, GPU, storage
+Exec=simorgh-about
+Icon=about
+Terminal=false
+Categories=Simorgh;Settings;

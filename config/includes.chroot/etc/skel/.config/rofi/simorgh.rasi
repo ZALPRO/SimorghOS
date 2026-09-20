@@ -70,3 +70,10 @@ error-message {
     text-color: @bg;
     border-radius: 12px;
 }
+
+element normal.normal { background-color: transparent; text-color: @text; }
+element normal.urgent { background-color: @rose; text-color: @bg; }
+element selected.active { background-color: @accent2; text-color: @bg; }
+element alternate.normal { background-color: alpha(@surface, 0.5); text-color: @text; }
+button hover { background-color: alpha(@accent, 0.25); text-color: @accent; }
+entry hover { border-color: @accent; }

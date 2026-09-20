@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Screenshot
+Name[fa]=اسکرین‌شات
+Comment=Full screen, window, area, delay
+Exec=simorgh-shot
+Icon=screenshot
+Terminal=false
+Categories=Simorgh;Accessories;

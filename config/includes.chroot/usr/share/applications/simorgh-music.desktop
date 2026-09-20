@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Music
+Name[fa]=موسیقی
+Comment=Library, playlists, queue, player
+Exec=simorgh-music
+Icon=music
+Terminal=false
+Categories=Simorgh;AudioVideo;

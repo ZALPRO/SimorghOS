@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Update Center
+Name[fa]=به‌روزرسانی
+Comment=Check, download, install updates
+Exec=simorgh-update-gui
+Icon=update
+Terminal=false
+Categories=Simorgh;Settings;

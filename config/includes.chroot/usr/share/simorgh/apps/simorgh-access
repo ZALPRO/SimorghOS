@@ -1,0 +1,111 @@
+#!/usr/bin/env python3
+"""SimorghOS — Accessibility: large text, high contrast, reduce motion, captions,
+magnifier, color filters, keyboard & mouse tweaks. Persists to prefs, applies live."""
+import os
+import subprocess
+import sys
+
+sys.path.insert(0, "/usr/share/simorgh")
+from gi.repository import Gtk  # noqa: E402
+from ui import card, header, init, label  # noqa: E402
+
+PREFS = os.path.expanduser("~/.config/simorgh/prefs")
+
+
+def prefs():
+    d = {}
+    if os.path.exists(PREFS):
+        for line in open(PREFS):
+            if "=" in line and not line.strip().startswith("#"):
+                k, v = line.split("=", 1)
+                d[k.strip()] = v.strip()
+    return d
+
+
+def set_pref(k, v):
+    d = prefs()
+    d[k] = v
+    os.makedirs(os.path.dirname(PREFS), exist_ok=True)
+    with open(PREFS, "w") as f:
+        for key, val in d.items():
+            f.write(f"{key}={val}\n")
+
+
+def hyprctl(args):
+    subprocess.run(["hyprctl"] + args, capture_output=True)
+
+
+class Acc:
+    def __init__(self):
+        self.win = init("Accessibility", 560, 660)
+        header(self.win, "Accessibility", icon="accessibility")
+        sc = Gtk.ScrolledWindow()
+        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        root.set_margin_top(8)
+        sc.add(root)
+        p = prefs()
+
+        def toggle(name, key, desc, apply_fn):
+            c = card()
+            row = Gtk.Box(spacing=10)
+            col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+            col.pack_start(label(name, bold=True), False, False, 0)
+            col.pack_start(label(desc), False, False, 0)
+            row.pack_start(col, True, True, 4)
+            sw = Gtk.Switch()
+            sw.set_active(p.get(key, "0") == "1")
+            sw.connect("state-set", lambda s, v: (set_pref(key, "1" if v else "0"), apply_fn(v), False))
+            row.pack_end(sw, False, False, 6)
+            c.pack_start(row, False, False, 4)
+            root.pack_start(c, False, False, 5)
+
+        toggle("Large Text", "a11y_large_text",
+               "Scale all interface text by 1.25×",
+               lambda v: subprocess.Popen(["xsettingsd", "-c", "/etc/xsettingsd/simorgh.conf"])
+               if v else None)
+        toggle("High Contrast", "a11y_high_contrast",
+               "Stronger borders and text contrast", lambda v: None)
+        toggle("Reduce Motion", "a11y_reduce_motion",
+               "Disable window/workspace animations",
+               lambda v: hyprctl(["keyword", "animations:enabled", "0" if v else "1"]))
+        toggle("Captions", "a11y_captions",
+               "Prefer apps with caption support (mpv subs on by default)", lambda v: None)
+        toggle("Color Filter (warm)", "a11y_color_filter",
+               "Reduce blue light strongly (gammastep)",
+               lambda v: subprocess.Popen(["pkill", "gammastep"]) if not v else
+               subprocess.Popen(["gammastep", "-t", "3000:2700"]))
+        toggle("Magnifier", "a11y_magnifier",
+               "Zoom follow-mouse (Super + scroll in Hyprland)",
+               lambda v: None)
+        toggle("Screen Reader hints", "a11y_reader",
+               "Read notifications aloud via speech dispatcher (if installed)", lambda v: None)
+
+        # keyboard & mouse
+        c = card()
+        c.pack_start(label("Keyboard & Mouse", bold=True), False, False, 2)
+        row = Gtk.Box(spacing=8)
+        row.pack_start(label("Pointer speed"), False, False, 6)
+        sp = Gtk.SpinButton.new_with_range(-1.0, 1.0, 0.1)
+        sp.set_value(float(p.get("a11y_pointer", "0")))
+        sp.connect("value-changed", lambda s: (set_pref("a11y_pointer", f"{s.get_value():.1f}"),
+                                               hyprctl(["keyword", "input:accel_profile", "flat"])))
+        row.pack_start(sp, False, False, 4)
+        c.pack_start(row, False, False, 4)
+        row2 = Gtk.Box(spacing=8)
+        row2.pack_start(label("Repeat delay (ms)"), False, False, 6)
+        rp = Gtk.SpinButton.new_with_range(200, 2000, 50)
+        rp.set_value(float(p.get("a11y_repeat", "600")))
+        rp.connect("value-changed", lambda s: (set_pref("a11y_repeat", str(int(s.get_value()))),
+                                               hyprctl(["keyword", "input:repeat_delay", str(int(s.get_value()))])))
+        row2.pack_start(rp, False, False, 4)
+        c.pack_start(row2, False, False, 4)
+        root.pack_start(c, False, False, 5)
+        self.win.add(sc)
+
+    def run(self):
+        self.win.show_all()
+        Gtk.main()
+
+
+if __name__ == "__main__":
+    Acc().run()

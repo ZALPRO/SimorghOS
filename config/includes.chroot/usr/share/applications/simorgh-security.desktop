@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Security Center
+Name[fa]=مرکز امنیت
+Comment=Firewall, updates, encryption, privacy
+Exec=simorgh-security
+Icon=security
+Terminal=false
+Categories=Simorgh;Settings;

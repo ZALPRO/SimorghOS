@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Accessibility
+Name[fa]=دسترس‌پذیری
+Comment=Large text, contrast, motion, filters
+Exec=simorgh-access
+Icon=accessibility
+Terminal=false
+Categories=Simorgh;Settings;

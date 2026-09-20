@@ -1,0 +1,129 @@
+#!/usr/bin/env python3
+"""SimorghOS — Update Center: check, download % progress, install, restart-required banner."""
+import os
+import subprocess
+import sys
+import threading
+
+sys.path.insert(0, "/usr/share/simorgh")
+from gi.repository import GLib, Gtk  # noqa: E402
+from ui import card, header, init, label  # noqa: E402
+
+
+class Upd:
+    def __init__(self):
+        self.win = init("Update Center", 620, 620)
+        header(self.win, "Update Center", icon="update")
+        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        root.set_margin_top(8)
+
+        self.reboot_bar = Gtk.Box(spacing=8)
+        self.reboot_bar.get_style_context().add_class("simorgh-card")
+        self.reboot_bar.pack_start(label("Restart Required — a previous update finished.",
+                                         cls="state-warn", bold=True), True, True, 6)
+        rb = Gtk.Button(label="Restart Now")
+        rb.connect("clicked", lambda b: subprocess.Popen(["pkexec", "systemctl", "reboot"]))
+        self.reboot_bar.pack_end(rb, False, False, 6)
+        root.pack_start(self.reboot_bar, False, False, 8)
+
+        hb = Gtk.Box(spacing=8)
+        self.check = Gtk.Button(label="Check for Updates")
+        self.check.get_style_context().add_class("suggested-action")
+        self.install = Gtk.Button(label="Install All")
+        self.install.set_sensitive(False)
+        self.check.connect("clicked", lambda b: self.do_check())
+        self.install.connect("clicked", lambda b: self.do_install())
+        self.spin = Gtk.Spinner()
+        hb.pack_start(self.check, False, False, 8)
+        hb.pack_start(self.install, False, False, 8)
+        hb.pack_end(self.spin, False, False, 8)
+        root.pack_start(hb, False, False, 4)
+
+        self.progress = Gtk.ProgressBar()
+        self.progress.set_show_text(True)
+        root.pack_start(self.progress, False, False, 6)
+        self.status = label("")
+        root.pack_start(self.status, False, False, 2)
+
+        self.sw = Gtk.ScrolledWindow()
+        self.listbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        self.listbox.set_margin_top(6)
+        self.sw.add(self.listbox)
+        root.pack_start(self.sw, True, True, 6)
+        self.win.add(root)
+
+    def put(self, fn, *a):
+        GLib.idle_add(fn, *a)
+
+    def do_check(self):
+        self.check.set_sensitive(False)
+        self.spin.start()
+        self.status.set_text("refreshing package lists…")
+
+        def work():
+            p = subprocess.run(["pkexec", "apt-get", "update"], capture_output=True, text=True)
+            up = subprocess.run(["apt", "list", "--upgradable"], capture_output=True, text=True)
+            lines = [l for l in up.stdout.splitlines()[1:] if "upgradable" in l]
+            self.put(self.show_list, lines, p.returncode == 0)
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def show_list(self, lines, ok):
+        self.spin.stop()
+        self.check.set_sensitive(True)
+        for c in list(self.listbox.get_children()):
+            self.listbox.remove(c)
+        for l in lines:
+            name = l.split("/", 1)[0]
+            ver = l.split(" ", 1)[1] if " " in l else ""
+            row = Gtk.Box(spacing=8)
+            row.pack_start(label(name, bold=True), False, False, 8)
+            row.pack_start(label(ver), True, True, 4)
+            self.listbox.pack_start(row, False, False, 1)
+        n = len(lines)
+        self.status.set_text(f"{n} upgradable package(s)" if ok else "check failed")
+        self.install.set_sensitive(n > 0)
+        self.listbox.show_all()
+
+    def do_install(self):
+        self.install.set_sensitive(False)
+        self.spin.start()
+        self.status.set_text("installing updates…")
+        self.progress.set_fraction(0.0)
+
+        def work():
+            p = subprocess.Popen(["pkexec", "apt-get", "full-upgrade", "-y", "-o",
+                                  "Dpkg::Progress-Fancy=1"],
+                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+            total = 100.0
+            done = 0
+            for line in p.stdout:
+                if "%" in line:
+                    try:
+                        done = max(done, float(line.split("%")[0].strip().split()[-1]))
+                    except Exception:
+                        pass
+                    self.put(self.progress.set_fraction, done / total)
+                self.put(self.status.set_text, line.strip()[:80])
+            p.wait()
+            self.put(self.finished, p.returncode == 0)
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def finished(self, ok):
+        self.spin.stop()
+        self.progress.set_fraction(1.0)
+        self.status.set_text("all updates installed ✔" if ok else "update failed — see terminal")
+        self.check_reboot()
+
+    def check_reboot(self):
+        self.reboot_bar.set_visible(os.path.exists("/var/run/reboot-required"))
+
+    def run(self):
+        self.check_reboot()
+        self.win.show_all()
+        Gtk.main()
+
+
+if __name__ == "__main__":
+    Upd().run()

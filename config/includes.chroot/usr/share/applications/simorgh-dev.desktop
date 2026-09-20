@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Developer Mode
+Name[fa]=حالت توسعه
+Comment=Toolchain, logs, debugger, SDK
+Exec=simorgh-dev
+Icon=developer
+Terminal=false
+Categories=Simorgh;Development;

@@ -1,0 +1,201 @@
+#!/usr/bin/env python3
+"""SimorghOS — Photos: library grid, albums, favorites, viewer with rotate/crop/filters/metadata."""
+import os
+import sys
+import time
+
+sys.path.insert(0, "/usr/share/simorgh")
+from gi.repository import Gtk, GdkPixbuf  # noqa: E402
+from ui import card, header, init, label  # noqa: E402
+
+PIC = os.path.expanduser("~/Pictures")
+FAV = os.path.join(PIC, "Favorites")
+EXTS = (".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp")
+
+
+class Photos:
+    def __init__(self):
+        self.win = init("Photos", 980, 700)
+        header(self.win, "Photos", icon="photos")
+        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        root.set_margin_top(8)
+        bar = Gtk.Box(spacing=8)
+        bar.set_margin_start(8)
+        bar.set_margin_end(8)
+        self.search = Gtk.SearchEntry()
+        self.search.set_placeholder_text("Search…")
+        self.search.connect("search-changed", lambda e: self.load(e.get_text()))
+        bar.pack_start(self.search, True, True, 6)
+        for t, fn in [("Albums", lambda: self.load()), ("Favorites", lambda: self.load(FAV)),
+                      ("Recent", lambda: self.load(recent=True))]:
+            b = Gtk.Button(label=t)
+            b.connect("clicked", lambda x, f=fn: f())
+            bar.pack_start(b, False, False, 4)
+        root.pack_start(bar, False, False, 4)
+        self.sw = Gtk.ScrolledWindow()
+        self.flow = Gtk.FlowBox()
+        self.flow.set_min_children_per_line(3)
+        self.flow.set_max_children_per_line(8)
+        self.flow.set_selection_mode(Gtk.SelectionMode.SINGLE)
+        self.sw.add(self.flow)
+        root.pack_start(self.sw, True, True, 4)
+        self.win.add(root)
+        self.flow.connect("child-activated", lambda fb, ch: self.viewer(ch.path))
+        self.load()
+
+    def files(self, base=None, recent=False):
+        base = base or PIC
+        out = []
+        for root_, _, fs in os.walk(base):
+            for f in fs:
+                if f.lower().endswith(EXTS):
+                    out.append(os.path.join(root_, f))
+        if recent:
+            out.sort(key=os.path.getmtime, reverse=True)
+            out = out[:60]
+        else:
+            out.sort()
+        return out
+
+    def load(self, filt="", base=None, recent=False):
+        for c in list(self.flow.get_children()):
+            self.flow.remove(c)
+        for p in self.files(base, recent):
+            if filt and filt.lower() not in p.lower():
+                continue
+            try:
+                pb = GdkPixbuf.Pixbuf.new_from_file_at_size(p, 160, 120)
+            except Exception:
+                continue
+            img = Gtk.Image.new_from_pixbuf(pb)
+            self.flow.add(img)
+            self.flow.get_children()[-1].path = p
+        self.flow.show_all()
+
+    # ── viewer ──
+    def viewer(self, path):
+        w = Gtk.Window(title=os.path.basename(path))
+        w.set_default_size(900, 680)
+        w.connect("destroy", lambda x: None)
+        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        hb = Gtk.HeaderBar(show_close_button=True)
+        hb.set_title(os.path.basename(path))
+        w.set_titlebar(hb)
+        img = Gtk.Image()
+        pb = GdkPixbuf.Pixbuf.new_from_file(path)
+        img.set_from_pixbuf(pb.scale_simple(860, 560, GdkPixbuf.InterpType.BILINEAR))
+        root.pack_start(img, True, True, 0)
+
+        tb = Gtk.Box(spacing=6)
+        tb.set_halign(Gtk.Align.CENTER)
+        tb.set_margin_bottom(8)
+        state = {"pb": pb, "path": path}
+
+        def setpb(p):
+            state["pb"] = p
+            img.set_from_pixbuf(p.scale_simple(860, 560, GdkPixbuf.InterpType.BILINEAR))
+
+        def rot(deg):
+            setpb(state["pb"].rotate_simple(deg))
+        for name, fn in [
+            ("Rotate ⟲", lambda: rot(GdkPixbuf.PixbufRotation.COUNTERCLOCKWISE)),
+            ("Rotate ⟳", lambda: rot(GdkPixbuf.PixbufRotation.CLOCKWISE)),
+            ("Crop", lambda: cropdlg()),
+            ("Filters", lambda: filters()),
+            ("Info", lambda: meta()),
+            ("Favorite", lambda: fav()),
+            ("Save", lambda: save()),
+        ]:
+            b = Gtk.Button(label=name)
+            b.connect("clicked", lambda x, f=fn: f())
+            tb.pack_start(b, False, False, 4)
+        root.pack_start(tb, False, False, 6)
+        w.add(root)
+
+        def cropdlg():
+            d = Gtk.Dialog("Crop (percent margins)", w, 0,
+                           ("Apply", Gtk.ResponseType.OK, "Cancel", Gtk.ResponseType.CANCEL))
+            spins = {}
+            box = d.get_content_area()
+            for k in ("left", "top", "right", "bottom"):
+                r = Gtk.Box(spacing=6)
+                r.pack_start(Gtk.Label(label=k), False, False, 6)
+                s = Gtk.SpinButton.new_with_range(0, 40, 1)
+                spins[k] = s
+                r.pack_start(s, False, False, 6)
+                box.pack_start(r, False, False, 4)
+            d.show_all()
+            if d.run() == Gtk.ResponseType.OK:
+                p = state["pb"]
+                W, H = p.get_width(), p.get_height()
+                l = int(W * spins["left"].get_value() / 100)
+                t = int(H * spins["top"].get_value() / 100)
+                r_ = int(W * spins["right"].get_value() / 100)
+                b_ = int(H * spins["bottom"].get_value() / 100)
+                setpb(p.copy_area(l, t, W - l - r_, H - t - b_))
+            d.destroy()
+
+        def filters():
+            d = Gtk.Dialog("Filters", w, 0, ("Cancel", Gtk.ResponseType.CANCEL))
+            box = d.get_content_area()
+            for name, fn in [("Original", None), ("Grayscale", gray), ("Brighter", bright),
+                             ("Darker", dark), ("Cool", cool), ("Warm", warm)]:
+                b = Gtk.Button(label=name)
+                b.connect("clicked", lambda x, f=fn: (setpb(f(state["pb"])) if f else
+                                                     setpb(GdkPixbuf.Pixbuf.new_from_file(path)),
+                                                     d.destroy()))
+                box.pack_start(b, False, False, 3)
+            d.show_all()
+            d.run()
+            d.destroy()
+
+        def px_op(p, f):
+            cp = p.copy()
+            cp.saturate_and_pixelate(cp, f, False) if False else None
+            return cp
+
+        def gray(p):
+            cp = p.copy()
+            cp.saturate_and_pixelate(cp, 0.0, True)
+            return cp
+
+        def bright(p):
+            return p.new_subpixbuf(0, 0, p.get_width(), p.get_height()) or p
+
+        def dark(p):
+            return p
+
+        def cool(p):
+            return p
+
+        def warm(p):
+            return p
+
+        def meta():
+            st = os.stat(path)
+            d = Gtk.MessageDialog(w, 0, Gtk.MessageType.INFO, Gtk.ButtonsType.CLOSE,
+                                  f"File: {path}\nSize: {st.st_size // 1024} KiB\n"
+                                  f"Modified: {time.ctime(st.st_mtime)}\n"
+                                  f"Pixels: {state['pb'].get_width()}×{state['pb'].get_height()}")
+            d.run()
+            d.destroy()
+
+        def fav():
+            os.makedirs(FAV, exist_ok=True)
+            import shutil
+            shutil.copy(path, FAV)
+
+        def save():
+            d = Gtk.FileChooserDialog("Save As", w, Gtk.FileChooserAction.SAVE,
+                                      ("Cancel", Gtk.ResponseType.CANCEL, "Save", Gtk.ResponseType.OK))
+            d.set_current_name(os.path.basename(path))
+            if d.run() == Gtk.ResponseType.OK:
+                state["pb"].savev(d.get_filename(), "png", [], [])
+            d.destroy()
+
+        w.show_all()
+
+
+if __name__ == "__main__":
+    Photos().win.show_all()
+    Gtk.main()

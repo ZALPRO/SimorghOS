@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Mail
+Name[fa]=ایمیل
+Comment=Inbox, sent, drafts, spam (Thunderbird)
+Exec=simorgh-mail
+Icon=mail
+Terminal=false
+Categories=Simorgh;Network;

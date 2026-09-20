@@ -1,0 +1,73 @@
+#!/usr/bin/env python3
+"""SimorghOS — Screen Recorder: full/area, system audio, microphone; wf-recorder backend."""
+import os
+import signal
+import subprocess
+import sys
+import time
+
+sys.path.insert(0, "/usr/share/simorgh")
+from gi.repository import Gtk  # noqa: E402
+from ui import card, header, init, label  # noqa: E402
+
+OUT_DIR = os.path.expanduser("~/Videos")
+
+
+class Rec:
+    def __init__(self):
+        self.proc = None
+        self.win = init("Screen Recorder", 480, 420)
+        header(self.win, "Screen Recorder", icon="recorder")
+        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        root.set_margin_top(8)
+
+        opts = card()
+        self.full = Gtk.RadioButton.new_with_label_from_widget(None, "Full Screen")
+        self.area = Gtk.RadioButton.new_with_label_from_widget(self.full, "Area")
+        self.audio = Gtk.CheckButton.new_with_label("System Audio")
+        self.audio.set_active(True)
+        self.mic = Gtk.CheckButton.new_with_label("Microphone")
+        self.cam = Gtk.CheckButton.new_with_label("Camera overlay (if present)")
+        for w in (self.full, self.area, self.audio, self.mic, self.cam):
+            opts.pack_start(w, False, False, 3)
+        root.pack_start(opts, False, False, 8)
+
+        self.btn = Gtk.Button(label="Start Recording")
+        self.btn.get_style_context().add_class("destructive-action")
+        self.btn.connect("clicked", lambda b: self.toggle())
+        root.pack_start(self.btn, False, False, 8)
+
+        self.status = label("idle")
+        self.status.set_xalign(.5)
+        root.pack_start(self.status, False, False, 6)
+        self.win.add(root)
+
+    def toggle(self):
+        if self.proc:
+            self.proc.send_signal(signal.SIGINT)
+            self.proc = None
+            self.btn.set_label("Start Recording")
+            self.status.set_text("saved to " + OUT_DIR)
+            return
+        os.makedirs(OUT_DIR, exist_ok=True)
+        path = os.path.join(OUT_DIR, f"Recording-{time.strftime('%F-%H%M%S')}.mp4")
+        argv = ["wf-recorder", "-f", path]
+        if self.area.get_active():
+            geom = subprocess.run(["slurp"], capture_output=True, text=True).stdout.strip()
+            if geom:
+                argv += ["-g", geom]
+        if self.audio.get_active():
+            argv += ["-a", "-d", "pipewire"]
+        if self.mic.get_active():
+            argv += ["--audio=pipe"]
+        self.proc = subprocess.Popen(argv)
+        self.btn.set_label("Stop")
+        self.status.set_text("recording… " + os.path.basename(path))
+
+    def run(self):
+        self.win.show_all()
+        Gtk.main()
+
+
+if __name__ == "__main__":
+    Rec().run()

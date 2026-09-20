@@ -1,0 +1,151 @@
+#!/usr/bin/env python3
+"""SimorghOS — Security Center: device security, firewall, app security, privacy,
+updates, encryption — with live status (Secure / Warning / Critical)."""
+import os
+import subprocess
+import sys
+
+sys.path.insert(0, "/usr/share/simorgh")
+from gi.repository import GLib, Gtk  # noqa: E402
+from ui import card, header, init, label, pkexec, run_cmd  # noqa: E402
+
+
+def sh(cmd):
+    try:
+        return subprocess.run(["sh", "-c", cmd], capture_output=True, text=True).stdout.strip()
+    except Exception:
+        return ""
+
+
+class Sec:
+    def __init__(self):
+        self.win = init("Security Center", 640, 700)
+        header(self.win, "Security Center", icon="security")
+        self.sc = Gtk.ScrolledWindow()
+        self.root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        self.root.set_margin_top(8)
+        self.sc.add(self.root)
+        self.win.add(self.sc)
+        self.refresh()
+
+    def refresh(self):
+        for c in list(self.root.get_children()):
+            self.root.remove(c)
+        self.banner = Gtk.Box(spacing=10)
+        self.banner.get_style_context().add_class("simorgh-card")
+        self.banner_icon = Gtk.Image.new_from_icon_name("security", Gtk.IconSize.DIALOG)
+        self.banner_text = label("Checking…", size=14, bold=True)
+        self.banner.pack_start(self.banner_icon, False, False, 8)
+        self.banner.pack_start(self.banner_text, True, True, 6)
+        self.root.pack_start(self.banner, False, False, 8)
+        self.warnings = 0
+        self.criticals = 0
+
+        self.card_device()
+        self.card_firewall()
+        self.card_updates()
+        self.card_encryption()
+        self.card_privacy()
+        self.root.show_all()
+        GLib.timeout_add(300, self.finalize_banner)
+
+    # ── device security ──
+    def card_device(self):
+        c = card()
+        c.pack_start(label("Device Security", bold=True), False, False, 2)
+        fw_ok = sh("fwupdtool get-devices 2>/dev/null | head -1") != ""
+        c.pack_start(label("Firmware updates service: " + ("available" if fw_ok else "not detected")),
+                     False, False, 2)
+        b = Gtk.Button(label="Check firmware updates")
+        b.connect("clicked", lambda x: run_cmd(
+            ["pkexec", "fwupdmgr", "refresh"], lambda ok, out: self.note(ok, out)))
+        c.pack_start(b, False, False, 4)
+        self.root.pack_start(c, False, False, 6)
+
+    # ── firewall ──
+    def card_firewall(self):
+        c = card()
+        c.pack_start(label("Firewall", bold=True), False, False, 2)
+        st = sh("ufw status 2>/dev/null | head -1")
+        on = "active" in st
+        self.fw_state = label("Status: " + (st or "not installed"))
+        self.fw_state.get_style_context().add_class("state-ok" if on else "state-warn")
+        c.pack_start(self.fw_state, False, False, 2)
+        if not on:
+            self.warnings += 1
+        row = Gtk.Box(spacing=8)
+        en = Gtk.Button(label="Enable")
+        dis = Gtk.Button(label="Disable")
+        gui = Gtk.Button(label="Graphical rules (gufw)")
+        en.connect("clicked", lambda x: pkexec(["ufw", "enable"], lambda ok, out: self.refresh()))
+        dis.connect("clicked", lambda x: pkexec(["ufw", "disable"], lambda ok, out: self.refresh()))
+        gui.connect("clicked", lambda x: subprocess.Popen(["pkexec", "gufw"]))
+        for w in (en, dis, gui):
+            row.pack_start(w, False, False, 4)
+        c.pack_start(row, False, False, 4)
+        self.root.pack_start(c, False, False, 6)
+
+    # ── updates ─
+    def card_updates(self):
+        c = card()
+        c.pack_start(label("Updates", bold=True), False, False, 2)
+        auto = os.path.exists("/etc/apt/apt.conf.d/20simorgh-autoupgrade")
+        pend = sh("apt list --upgradable 2>/dev/null | tail -n +2 | wc -l")
+        c.pack_start(label(f"Automatic security updates: {'on' if auto else 'off'}"), False, False, 2)
+        pl = label(f"Upgradable packages now: {pend}")
+        if auto:
+            pl.get_style_context().add_class("state-ok")
+        c.pack_start(pl, False, False, 2)
+        if not auto:
+            self.warnings += 1
+        b = Gtk.Button(label="Open Update Center")
+        b.connect("clicked", lambda x: subprocess.Popen(["simorgh-update-gui"]))
+        c.pack_start(b, False, False, 4)
+        self.root.pack_start(c, False, False, 6)
+
+    # ── encryption ──
+    def card_encryption(self):
+        c = card()
+        c.pack_start(label("Encryption", bold=True), False, False, 2)
+        crypt = sh("lsblk -o TYPE 2>/dev/null | grep -c crypt")
+        enc = crypt not in ("", "0")
+        t = label("Disk encryption (LUKS): " + ("active" if enc else "not detected"))
+        t.get_style_context().add_class("state-ok" if enc else "state-warn")
+        c.pack_start(t, False, False, 2)
+        if not enc:
+            self.warnings += 1
+        c.pack_start(label("Enable it during install by ticking “Encrypt system” in the installer."),
+                     False, False, 2)
+        self.root.pack_start(c, False, False, 6)
+
+    # ── privacy ──
+    def card_privacy(self):
+        c = card()
+        c.pack_start(label("Privacy", bold=True), False, False, 2)
+        c.pack_start(label("• No telemetry of any kind is collected by SimorghOS."), False, False, 2)
+        c.pack_start(label("• Browser: Brave with built-in trackers/ads blocking."), False, False, 2)
+        c.pack_start(label("• Snapshots (Timeshift) stay on this device."), False, False, 2)
+        self.root.pack_start(c, False, False, 6)
+
+    def note(self, ok, out):
+        run_cmd(["notify-send", "-i", "security", "Security Center",
+                 ("firmware metadata refreshed" if ok else out[:200])])
+
+    def finalize_banner(self):
+        if self.criticals:
+            txt, cls = "× Critical", "state-error"
+        elif self.warnings:
+            txt, cls = f"! Warning — {self.warnings} item(s) need attention", "state-warn"
+        else:
+            txt, cls = "✓ Secure", "state-ok"
+        self.banner_text.set_text(txt)
+        self.banner_text.get_style_context().add_class(cls)
+        return False
+
+    def run(self):
+        self.win.show_all()
+        Gtk.main()
+
+
+if __name__ == "__main__":
+    Sec().run()

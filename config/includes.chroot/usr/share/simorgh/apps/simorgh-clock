@@ -1,0 +1,208 @@
+#!/usr/bin/env python3
+"""SimorghOS — Clock: world clocks, alarms, timer, stopwatch."""
+import json
+import os
+import sys
+import time
+
+sys.path.insert(0, "/usr/share/simorgh")
+from gi.repository import GLib, Gtk  # noqa: E402
+from ui import card, header, init, label, run_cmd  # noqa: E402
+
+CFG = os.path.expanduser("~/.config/simorgh/clock.json")
+CITIES = ["Asia/Tehran", "UTC", "Europe/Berlin", "Europe/London", "America/New_York",
+          "Asia/Tokyo", "Asia/Dubai", "Europe/Paris", "America/Los_Angeles", "Australia/Sydney"]
+
+
+def load():
+    try:
+        return json.load(open(CFG))
+    except Exception:
+        return {"world": ["Asia/Tehran", "UTC"], "alarms": []}
+
+
+def save(d):
+    os.makedirs(os.path.dirname(CFG), exist_ok=True)
+    json.dump(d, open(CFG, "w"))
+
+
+class Clock:
+    def __init__(self):
+        self.data = load()
+        self.win = init("Clock", 640, 620)
+        header(self.win, "Clock", icon="clock")
+        nb = Gtk.Notebook()
+        nb.append_page(self.tab_world(), Gtk.Label(label="World Clock"))
+        nb.append_page(self.tab_alarm(), Gtk.Label(label="Alarms"))
+        nb.append_page(self.tab_timer(), Gtk.Label(label="Timer"))
+        nb.append_page(self.tab_stop(), Gtk.Label(label="Stopwatch"))
+        self.win.add(nb)
+        GLib.timeout_add_seconds(1, self.tick)
+        self.tick(None)
+
+    # ── world ──
+    def tab_world(self):
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        self.world_rows = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        self.world_rows.set_margin_top(10)
+        box.pack_start(self.world_rows, False, False, 6)
+        hb = Gtk.Box(spacing=8)
+        self.city = Gtk.ComboBoxText()
+        for c in CITIES:
+            self.city.append_text(c)
+        self.city.set_active(0)
+        add = Gtk.Button(label="Add")
+        add.connect("clicked", lambda b: (self.data["world"].append(self.city.get_active_text()),
+                                          save(self.data), self.tick(None)))
+        hb.pack_start(self.city, True, True, 8)
+        hb.pack_start(add, False, False, 8)
+        box.pack_start(hb, False, False, 8)
+        return box
+
+    def world_line(self, tz):
+        from datetime import datetime, timezone as dtz
+        import zoneinfo
+        try:
+            now = datetime.now(dtz.utc).astimezone(zoneinfo.ZoneInfo(tz))
+            txt = now.strftime("%H:%M:%S")
+            day = now.strftime("%a %d %b")
+        except Exception:
+            txt, day = "--:--:--", ""
+        row = Gtk.Box(spacing=10)
+        row.get_style_context().add_class("simorgh-card")
+        row.pack_start(label(tz), True, True, 6)
+        row.pack_start(label(day), False, False, 4)
+        big = label(txt, size=16, bold=True)
+        row.pack_end(big, False, False, 6)
+        rm = Gtk.Button(label="✕")
+        rm.set_relief(Gtk.ReliefStyle.NONE)
+        rm.connect("clicked", lambda b: (self.data["world"].remove(tz), save(self.data), self.tick(None)))
+        row.pack_end(rm, False, False, 2)
+        return row
+
+    # ── alarms ──
+    def tab_alarm(self):
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        self.alarm_rows = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        self.alarm_rows.set_margin_top(10)
+        box.pack_start(self.alarm_rows, False, False, 6)
+        hb = Gtk.Box(spacing=8)
+        self.ah = Gtk.SpinButton.new_with_range(0, 23, 1)
+        self.am = Gtk.SpinButton.new_with_range(0, 59, 1)
+        add = Gtk.Button(label="Add alarm")
+        add.connect("clicked", self.add_alarm)
+        for w in (self.ah, self.am):
+            hb.pack_start(w, False, False, 4)
+        hb.pack_start(Gtk.Label(label=":"), False, False, 0)
+        hb.pack_end(add, False, False, 8)
+        box.pack_start(hb, False, False, 8)
+        return box
+
+    def add_alarm(self, b):
+        self.data["alarms"].append({"h": int(self.ah.get_value()), "m": int(self.am.get_value()), "on": True})
+        save(self.data)
+        self.tick(None)
+
+    def alarm_line(self, i, a):
+        row = Gtk.Box(spacing=10)
+        row.get_style_context().add_class("simorgh-card")
+        sw = Gtk.Switch(); sw.set_active(a["on"])
+        sw.connect("state-set", lambda s, v: (a.update(on=v), save(self.data), False))
+        row.pack_start(sw, False, False, 6)
+        row.pack_start(label(f"{a['h']:02d}:{a['m']:02d}", size=16, bold=True), True, True, 6)
+        rm = Gtk.Button(label="✕"); rm.set_relief(Gtk.ReliefStyle.NONE)
+        rm.connect("clicked", lambda b: (self.data["alarms"].pop(i), save(self.data), self.tick(None)))
+        row.pack_end(rm, False, False, 2)
+        return row
+
+    # ── timer ──
+    def tab_timer(self):
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        hb = Gtk.Box(spacing=8)
+        self.th = Gtk.SpinButton.new_with_range(0, 23, 1)
+        self.tm = Gtk.SpinButton.new_with_range(0, 59, 1)
+        self.ts = Gtk.SpinButton.new_with_range(0, 59, 1)
+        for w in (self.th, self.tm, self.ts):
+            hb.pack_start(w, False, False, 4)
+        self.t_start = Gtk.Button(label="Start")
+        self.t_start.connect("clicked", self.timer_start)
+        hb.pack_end(self.t_start, False, False, 8)
+        box.pack_start(hb, False, False, 14)
+        self.t_label = label("00:00:00", size=34, bold=True)
+        self.t_label.set_xalign(.5)
+        box.pack_start(self.t_label, False, False, 10)
+        self.t_end = 0
+        return box
+
+    def timer_start(self, b):
+        secs = int(self.th.get_value()) * 3600 + int(self.tm.get_value()) * 60 + int(self.ts.get_value())
+        self.t_end = time.time() + secs
+        self.t_start.set_sensitive(False)
+
+    # ── stopwatch ──
+    def tab_stop(self):
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        self.s_label = label("00:00.0", size=34, bold=True)
+        self.s_label.set_xalign(.5)
+        box.pack_start(self.s_label, False, False, 16)
+        hb = Gtk.Box(spacing=10)
+        hb.set_halign(Gtk.Align.CENTER)
+        self.sw_run = Gtk.Button(label="Start")
+        self.sw_run.connect("clicked", self.sw_toggle)
+        self.sw_rst = Gtk.Button(label="Reset")
+        self.sw_rst.connect("clicked", lambda b: self.sw_reset())
+        hb.pack_start(self.sw_run, False, False, 6)
+        hb.pack_start(self.sw_rst, False, False, 6)
+        box.pack_start(hb, False, False, 6)
+        self.sw_base, self.sw_t0, self.sw_on = 0.0, 0.0, False
+        return box
+
+    def sw_toggle(self, b):
+        if self.sw_on:
+            self.sw_base += time.time() - self.sw_t0
+            self.sw_on = False
+            b.set_label("Start")
+        else:
+            self.sw_t0 = time.time()
+            self.sw_on = True
+            b.set_label("Pause")
+
+    def sw_reset(self):
+        self.sw_base, self.sw_on = 0.0, False
+        self.sw_run.set_label("Start")
+
+    # ── 1 Hz tick ──
+    def tick(self, _):
+        for w in (self.world_rows, self.alarm_rows):
+            for c in list(w.get_children()):
+                w.remove(c)
+        for tz in list(self.data["world"]):
+            self.world_rows.pack_start(self.world_line(tz), False, False, 4)
+        for i, a in enumerate(self.data["alarms"]):
+            self.alarm_rows.pack_start(self.alarm_line(i, a), False, False, 4)
+        # timer
+        if self.t_end:
+            left = int(self.t_end - time.time())
+            if left <= 0:
+                self.t_end = 0
+                self.t_start.set_sensitive(True)
+                run_cmd(["notify-send", "-i", "clock", "Timer", "Time is up"])
+                left = 0
+            self.t_label.set_text(f"{left // 3600:02d}:{left // 60 % 60:02d}:{left % 60:02d}")
+        # stopwatch
+        cur = self.sw_base + (time.time() - self.sw_t0 if self.sw_on else 0)
+        self.s_label.set_text(f"{int(cur) // 60:02d}:{cur % 60:04.1f}")
+        # alarms fire
+        now = time.localtime()
+        for a in self.data["alarms"]:
+            if a["on"] and a["h"] == now.tm_hour and a["m"] == now.tm_min and now.tm_sec == 0:
+                run_cmd(["notify-send", "-i", "clock", "Alarm", f"{a['h']:02d}:{a['m']:02d}"])
+        return True
+
+    def run(self):
+        self.win.show_all()
+        Gtk.main()
+
+
+if __name__ == "__main__":
+    Clock().run()
