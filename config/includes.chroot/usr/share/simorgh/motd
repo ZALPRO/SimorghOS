@@ -1,0 +1,15 @@
+   _____ ______  _______  ____  ________  __
+  / ___//  _/  |/  / __ \/ __ \/ ____/ / / /
+  \__ \ / // /|_/ / / / / /_/ / / __/ /_/ /
+ ___/ // // /  / / /_/ / _, _/ /_/ / __  /
+/____/___/_/  /_/ \____/_/ |_|\____/_/ /_/
+
+
+  SimorghOS 0.0.1 — the self-governing operating system
+  ──────────────────────────────────────────────────────
+  simorgh              command hub (try: simorgh help)
+  simorgh store        app center        مرکز نرم‌افزار
+  simorgh center       control center    مرکز کنترل
+  simorgh setup        language · calendar · theme · install
+  Super+Space          English / Persian
+  Super+C              control center    Super+A  app center

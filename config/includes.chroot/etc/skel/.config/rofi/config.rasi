@@ -1,0 +1,13 @@
+/* سیمرغ‌اواس — پیکربندی Rofi */
+configuration {
+    show-icons: true;
+    icon-theme: "Papirus-Dark";
+    drun-display-format: "{name}";
+    font: "Vazirmatn 12";
+    display-drun: "برنامه‌ها";
+    display-run: "اجرا";
+    display-window: "پنجره‌ها";
+    sidebar-mode: true;
+}
+
+@theme "~/.config/rofi/simorgh.rasi"

@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+# ─────────────────────────────────────────────────────────────
+#  سیمرغ‌اواس — جابه‌جایی تم سراسری
+#  کاربرد: simorgh-set-theme [dark|lapis|light]
+# ─────────────────────────────────────────────────────────────
+set -euo pipefail
+
+NAME="${1:-dark}"
+CFG="$HOME/.config"
+mkdir -p "$CFG/hypr" "$CFG/waybar" "$CFG/rofi" "$CFG/gtk-3.0" "$CFG/gtk-4.0" "$CFG/qt6ct"
+
+case "$NAME" in
+  dark)   ACCENT='#94e2d5'; ACCENT2='#89b4fa'; GOLD='#f9e2af'; ROSE='#f38ba8'; GREEN='#a6e3a1'
+          BG='#11111b'; SURFACE='#1e1e2e'; OVERLAY='#313244'; TEXT='#cdd6f4'; SUBTEXT='#a6adc8'
+          GTKTHEME='Orchis-Dark-Compact'; ICONS='Papirus-Dark'; DARK=1
+          WALL='wallpaper-simorgh-dark.png' ;;
+  lapis)  ACCENT='#89b4fa'; ACCENT2='#cba6f7'; GOLD='#f9e2af'; ROSE='#f38ba8'; GREEN='#a6e3a1'
+          BG='#0d1021'; SURFACE='#161a33'; OVERLAY='#2a2f52'; TEXT='#dbe2ff'; SUBTEXT='#9aa3cf'
+          GTKTHEME='Orchis-Dark-Compact'; ICONS='Papirus-Dark'; DARK=1
+          WALL='wallpaper-simorgh-dark.png' ;;
+  light)  ACCENT='#0f8f83'; ACCENT2='#1e66d0'; GOLD='#a07a00'; ROSE='#c6455c'; GREEN='#2f7d3b'
+          BG='#eff1f5'; SURFACE='#e6e9ef'; OVERLAY='#ccd0da'; TEXT='#4c4f69'; SUBTEXT='#6c6f85'
+          GTKTHEME='Orchis-Light-Compact'; ICONS='Papirus'; DARK=0
+          WALL='wallpaper-simorgh-light.png' ;;
+  *) echo "تم‌های موجود: dark | lapis | light" >&2; exit 2 ;;
+esac
+
+if [[ ! -f "/usr/share/backgrounds/simorgh/$WALL" ]]; then
+    WALL='wallpaper-simorgh-dark.png'
+fi
+
+# ── Hyprland ──
+cat > "$CFG/hypr/theme.conf" <<EOF
+# سیمرغ‌اواس — تم فعال: $NAME
+\$accent          = ${ACCENT}ff
+\$accent2         = ${ACCENT2}ff
+\$gold            = ${GOLD}ff
+\$border_inactive = ${OVERLAY}cc
+\$shadow          = #00000066
+\$wall            = /usr/share/backgrounds/simorgh/$WALL
+EOF
+
+cat > "$CFG/hypr/hyprpaper.conf" <<EOF
+preload = /usr/share/backgrounds/simorgh/$WALL
+wallpaper = ,/usr/share/backgrounds/simorgh/$WALL
+splash = false
+EOF
+
+# ── Waybar ──
+cat > "$CFG/waybar/palette.css" <<EOF
+/* سیمرغ‌اواس — پالت فعال: $NAME */
+@define-color bg       ${BG};
+@define-color surface  ${SURFACE};
+@define-color overlay  ${OVERLAY};
+@define-color text     ${TEXT};
+@define-color subtext  ${SUBTEXT};
+@define-color accent   ${ACCENT};
+@define-color accent2  ${ACCENT2};
+@define-color gold     ${GOLD};
+@define-color rose     ${ROSE};
+@define-color green    ${GREEN};
+EOF
+
+# ── Rofi ──
+BGT="${BG}ee"; SURFT="${SURFACE}cc"
+[[ $DARK == 0 ]] && BGT="${BG}f2"
+cat > "$CFG/rofi/colors.rasi" <<EOF
+/* سیمرغ‌اواس — پالت فعال Rofi: $NAME */
+* {
+    bg: ${BG};
+    bg-t: ${BGT};
+    surface-t: ${SURFT};
+    text: ${TEXT};
+    accent: ${ACCENT};
+    accent2: ${ACCENT2};
+    rose: ${ROSE};
+}
+EOF
+
+# ── GTK ──
+for v in 3.0 4.0; do
+  sed -i \
+      -e "s|^gtk-theme-name=.*|gtk-theme-name=$GTKTHEME|" \
+      -e "s|^gtk-icon-theme-name=.*|gtk-icon-theme-name=$ICONS|" \
+      -e "s|^gtk-application-prefer-dark-theme=.*|gtk-application-prefer-dark-theme=$DARK|" \
+      "$CFG/gtk-$v/settings.ini" 2>/dev/null || true
+done
+
+# ── Qt ──
+sed -i -e "s|^icon_theme=.*|icon_theme=$ICONS|" "$CFG/qt6ct/qt6ct.conf" 2>/dev/null || true
+
+# ── اعمال زنده ──
+if command -v hyprctl >/dev/null 2>&1 && [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
+    hyprctl reload || true
+    pkill -x hyprpaper || true; (hyprpaper &) || true
+    pkill -x waybar    || true; (waybar &)    || true
+    pkill -x xsettingsd || true; (xsettingsd -c /etc/xsettingsd/simorgh.conf &) || true
+fi
+
+echo "سیمرغ: تم «$NAME» فعال شد."

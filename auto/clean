@@ -1,0 +1,8 @@
+#!/bin/sh
+set -e
+
+lb clean noauto "${@}"
+
+# فقط فایل‌های تولیدشده توسط lb config پاک شوند؛ هوک‌های سیمرغ دست‌نخورده بمانند
+rm -f config/binary config/bootstrap config/chroot config/common
+find config/hooks -type l -delete 2>/dev/null || true

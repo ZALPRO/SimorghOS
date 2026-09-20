@@ -1,0 +1,73 @@
+// سیمرغ‌اواس — نوار وضعیت Waybar
+{
+    "layer": "top",
+    "position": "top",
+    "height": 36,
+    "spacing": 8,
+    "margin-top": 6,
+    "margin-left": 8,
+    "margin-right": 8,
+
+    "modules-left": ["custom/logo", "hyprland/workspaces", "hyprland/window"],
+    "modules-right": ["tray", "network", "bluetooth", "pulseaudio", "cpu", "memory", "custom/jdate", "clock"],
+
+    "custom/logo": {
+        "format": "Simorgh",
+        "tooltip": false,
+        "on-click": "rofi -show drun"
+    },
+
+    "hyprland/workspaces": {
+        "disable-scroll": false,
+        "all-outputs": false,
+        "format": "{icon}",
+        "format-icons": {
+            "1": "۱", "2": "۲", "3": "۳", "4": "۴", "5": "۵",
+            "6": "۶", "7": "۷", "8": "۸", "9": "۹", "10": "۱۰"
+        },
+        "persistent-workspaces": { "*": 5 }
+    },
+
+    "hyprland/window": {
+        "max-length": 60,
+        "separate-outputs": true
+    },
+
+    "tray": { "spacing": 10 },
+
+    "network": {
+        "format-wifi": "📶",
+        "format-ethernet": "🌐",
+        "format-disconnected": "✖",
+        "tooltip-format": "{essid} — {ipaddr}"
+    },
+
+    "bluetooth": {
+        "format": "🔷",
+        "format-disabled": "",
+        "tooltip-format": "{status}"
+    },
+
+    "pulseaudio": {
+        "format": "{icon} {volume}٪",
+        "format-muted": "🔇",
+        "format-icons": { "default": ["🔈", "🔉", ""] },
+        "on-click": "pavucontrol"
+    },
+
+    "cpu": { "format": "⚙ {usage}٪", "interval": 5 },
+    "memory": { "format": "🧮 {percentage}٪", "interval": 5 },
+
+    "custom/jdate": {
+        "format": "🗓 {}",
+        "exec": "/usr/share/simorgh/bin/simorgh-jdate --short",
+        "interval": 60,
+        "tooltip-format": "تقویم جلالی"
+    },
+
+    "clock": {
+        "format": "🕐 {:%H:%M}",
+        "tooltip-format": "{:%A %d %B %Y}\n{calendar}",
+        "calendar": { "mode": "month" }
+    }
+}

@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=سیمرغ (Hyprland)
+Name[en]=Simorgh (Hyprland)
+Comment=محیط دسکتاپ سیمرغ‌اواس — Wayland
+Exec=/usr/share/simorgh/bin/simorgh-session
+Type=Application
+DesktopNames=Hyprland

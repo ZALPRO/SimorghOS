@@ -1,0 +1,93 @@
+#!/bin/sh
+# SimorghOS — finalize chroot at build time
+set -e
+
+echo "Simorgh: locales (en + fa)…"
+sed -i 's/^# *fa_IR.*/fa_IR.UTF-8 UTF-8/' /etc/locale.gen || true
+sed -i 's/^# *en_US.UTF-8.*/en_US.UTF-8 UTF-8/' /etc/locale.gen || true
+locale-gen || true
+cat > /etc/default/locale <<'LOCALE'
+# SimorghOS — default language: English (Persian fully supported)
+LANG=en_US.UTF-8
+LANGUAGE=en_US:en
+LC_MESSAGES=en_US.UTF-8
+LOCALE
+
+echo "Simorgh: brave keyring…"
+install -d /usr/share/keyrings
+cp -f /usr/share/simorgh/brave-keyring.gpg /usr/share/keyrings/brave-browser-archive-keyring.gpg || true
+
+echo "Simorgh: trim bloat (smaller ISO)…"
+apt-get purge -y --auto-remove \
+    linux-headers-amd64 linux-headers-6.12* linux-kbuild-6.12* \
+    yelp yelp-xsl pocketsphinx-en-us timgm6mb-soundfont || true
+
+echo "Simorgh: default browser = Brave…"
+if command -v brave-browser >/dev/null 2>&1; then
+    update-alternatives --set x-www-browser /usr/bin/brave-browser || true
+    update-alternatives --set gnome-www-browser /usr/bin/brave-browser || true
+fi
+
+echo "Simorgh: Flathub app center…"
+if command -v flatpak >/dev/null 2>&1; then
+    flatpak remote-add --if-not-exists flathub \
+        https://dl.flathub.org/repo/flathub.flatpakrepo || true
+fi
+
+echo "Simorgh: services (restore points, power, night light, auto-updates)…"
+ln -sf /usr/lib/systemd/system/lightdm.service /etc/systemd/system/display-manager.service || true
+mkdir -p /etc/systemd/system/multi-user.target.wants
+for svc in NetworkManager.service bluetooth.service accounts-daemon.service \
+           power-profiles-daemon.service unattended-upgrades.service \
+           timeshift.service flatpak-system-helper.service \
+           simorgh-live-autologin.service; do
+    if [ -f "/usr/lib/systemd/system/$svc" ]; then
+        ln -sf "/usr/lib/systemd/system/$svc" "/etc/systemd/system/multi-user.target.wants/$svc" || true
+    fi
+done
+ln -sf /etc/systemd/system/simorgh-live-autologin.service \
+       /etc/systemd/system/multi-user.target.wants/simorgh-live-autologin.service || true
+# unattended security upgrades by default
+if [ -d /etc/apt/apt.conf.d ]; then
+    cat > /etc/apt/apt.conf.d/20simorgh-autoupgrade <<'EOF'
+APT::Periodic::Enable "1";
+APT::Periodic::Update-Package-Lists "1";
+APT::Periodic::Unattended-Upgrade "1";
+APT::Periodic::AutocleanInterval "7";
+EOF
+fi
+
+echo "Simorgh: identity (/etc/os-release)…"
+. /etc/os-release
+SIMORGH_CODENAME="${VERSION_CODENAME:-trixie}"
+cat > /etc/os-release <<EOF
+PRETTY_NAME="SimorghOS 0.0.1"
+NAME="SimorghOS"
+VERSION_ID="0.0.1"
+VERSION="0.0.1"
+ID=simorgh
+ID_LIKE=debian
+HOME_URL="https://github.com/ZALPRO/SimorghOS"
+SUPPORT_URL="https://github.com/ZALPRO/SimorghOS/issues"
+BUG_REPORT_URL="https://github.com/ZALPRO/SimorghOS/issues"
+VERSION_CODENAME=$SIMORGH_CODENAME
+EOF
+
+echo "Simorgh: plugin directories…"
+mkdir -p /usr/share/simorgh/plugins /usr/local/share/simorgh/plugins
+
+echo "Simorgh: exec bits, caches…"
+chmod -R +x /usr/share/simorgh/bin || true
+for d in /usr/share/icons/*; do
+    [ -d "$d" ] && gtk-update-icon-caches "$d" 2>/dev/null || true
+done
+update-icon-caches /usr/share/icons 2>/dev/null || true
+fc-cache -f 2>/dev/null || true
+
+echo "Simorgh: Plymouth theme…"
+if command -v plymouth-set-default-theme >/dev/null 2>&1; then
+    plymouth-set-default-theme -R simorgh || true
+fi
+
+echo "Simorgh: finalize OK."
+exit 0

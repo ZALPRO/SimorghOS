@@ -1,0 +1,31 @@
+#!/bin/sh
+# SimorghOS 0.0.1 — live-build configuration
+set -e
+
+lb config noauto \
+    --distribution trixie \
+    --architecture amd64 \
+    --archive-areas "main contrib non-free-firmware" \
+    --backports true \
+    --updates true \
+    --security true \
+    --bootloaders "grub-efi,syslinux" \
+    --firmware-binary true \
+    --firmware-chroot true \
+    --linux-flavours amd64 \
+    --linux-packages "linux-image" \
+    --apt-recommends true \
+    --apt-indices false \
+    --cache false \
+    --checksums sha256 \
+    --compression gzip \
+    --iso-application "SimorghOS" \
+    --iso-volume "SimorghOS-0_0_1" \
+    --iso-publisher "SimorghOS Project;simorgh-os" \
+    --mirror-bootstrap "http://deb.debian.org/debian" \
+    --mirror-chroot "http://deb.debian.org/debian" \
+    --mirror-chroot-security "http://security.debian.org/debian-security" \
+    --mirror-binary "http://deb.debian.org/debian" \
+    --mirror-binary-security "http://security.debian.org/debian-security" \
+    --win32-loader false \
+    "${@}"

@@ -1,0 +1,16 @@
+# سیمرغ‌اواس — اعلان‌های Mako
+font=Vazirmatn 11
+background-color=#1e1e2ee6
+text-color=#cdd6f4
+border-color=#94e2d5
+border-size=1
+border-radius=12
+padding=12,14
+margin=8
+width=380
+default-timeout=8000
+icon-path=/usr/share/icons/Papirus-Dark
+
+[urgency=high]
+border-color=#f38ba8
+default-timeout=0

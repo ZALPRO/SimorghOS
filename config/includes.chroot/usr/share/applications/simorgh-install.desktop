@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=نصب سیمرغ
+Name[en]=Install SimorghOS
+Comment=نصب‌کنندهٔ گرافیکی (Calamares)
+Exec=pkexec calamares
+Icon=simorgh
+Terminal=false
+Categories=Simorgh;System;

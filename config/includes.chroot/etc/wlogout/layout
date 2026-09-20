@@ -1,0 +1,15 @@
+{
+    "label" : "lock", "action" : "hyprlock", "text" : "قفل", "keybind" : "l"
+}
+{
+    "label" : "logout", "action" : "hyprctl dispatch exit", "text" : "خروج", "keybind" : "e"
+}
+{
+    "label" : "suspend", "action" : "systemctl suspend", "text" : "تعلیق", "keybind" : "u"
+}
+{
+    "label" : "reboot", "action" : "systemctl reboot", "text" : "راه‌اندازی دوباره", "keybind" : "r"
+}
+{
+    "label" : "shutdown", "action" : "systemctl poweroff", "text" : "خاموش", "keybind" : "s"
+}

@@ -1,0 +1,22 @@
+# live-build
+binary/
+binary.*
+cache/
+chroot/
+chroot.packages.install
+chroot.packages.live
+config/binary
+config/bootstrap
+config/chroot
+config/common
+build.log
+live-image-*.iso*
+*.log
+
+# خروجی‌ها (ISO در GitHub Releases منتشر می‌شود)
+dist/
+
+# متفرقه
+*.swp
+.DS_Store
+__pycache__/

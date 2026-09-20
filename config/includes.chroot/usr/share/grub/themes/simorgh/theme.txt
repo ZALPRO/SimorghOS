@@ -1,0 +1,43 @@
+# سیمرغ‌اواس — تم GRUB
+title-text: ""
+desktop-image: "background.png"
+
+title-font: "Vazirmatn 24"
+message-font: "Vazirmatn 14"
+terminal-font: "Vazirmatn 14"
+
++ boot_menu {
+    left = 15%
+    top = 30%
+    width = 70%
+    height = 40%
+    item_font = "Vazirmatn 14"
+    item_color = "#cdd6f4"
+    selected_item_color = "#11111b"
+    item_height = 36
+    item_padding = 10
+    item_spacing = 6
+    menu_pixmap_style = "boot_menu_bg"
+    selected_item_pixmap_style = "select_bkg"
+}
+
++ boot_menu_bg {
+    image = "menu_bg.png"
+}
+
++ select_bkg {
+    image = "select_bg.png"
+}
+
++ progress_bar {
+    left = 15%
+    top = 78%
+    width = 70%
+    height = 20
+    bar_color = "#94e2d5"
+    bg_color = "#1e1e2e"
+    fg_color = "#94e2d5"
+    text_color = "#cdd6f4"
+    font = "Vazirmatn 14"
+    text = "@TIMEOUT_LONG@"
+}

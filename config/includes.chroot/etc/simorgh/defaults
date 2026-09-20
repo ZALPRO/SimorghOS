@@ -1,0 +1,4 @@
+# SimorghOS system defaults (overridable per user in ~/.config/simorgh/prefs)
+calendar=jalali
+digits=auto
+theme=dark

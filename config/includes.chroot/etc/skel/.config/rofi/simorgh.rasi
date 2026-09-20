@@ -1,0 +1,72 @@
+/* SimorghOS — Spotlight-style centered launcher */
+@import "colors.rasi"
+
+* {
+    background: @bg-t;
+    background-alt: @surface-t;
+    foreground: @text;
+    accent: @accent;
+    urgent: @rose;
+    font: "Vazirmatn 13";
+}
+
+window {
+    transparency: "real";
+    background-color: @bg-t;
+    border: 1px solid @accent;
+    border-radius: 20px;
+    location: center;
+    width: 46%;
+    min-height: 0;
+    padding: 18px;
+    children: [ entry, listview, mode-switcher ];
+}
+
+entry {
+    background-color: transparent;
+    text-color: @foreground;
+    font: "Vazirmatn 18";
+    padding: 10px 6px;
+    expand: true;
+    horizontal-align: 0.5;
+    placeholder: "Search apps, run commands…  /  جست‌وجو…";
+    placeholder-color: @accent;
+}
+
+listview {
+    columns: 1;
+    lines: 7;
+    spacing: 6px;
+    margin-top: 12px;
+    background: transparent;
+}
+
+element {
+    background-color: transparent;
+    text-color: @foreground;
+    border-radius: 14px;
+    padding: 10px 14px;
+    orientation: horizontal;
+}
+
+element selected {
+    background-color: @accent;
+    text-color: @bg;
+}
+
+element-icon { size: 28px; margin: 0 10px 0 0; }
+
+mode-switcher { spacing: 6px; margin-top: 10px; }
+button {
+    background-color: @background-alt;
+    text-color: @foreground;
+    border-radius: 12px;
+    padding: 6px 16px;
+}
+button selected { background-color: @accent; text-color: @bg; }
+
+error-message {
+    background-color: @urgent;
+    text-color: @bg;
+    border-radius: 12px;
+}

@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# SimorghOS — switch your user language:  simorgh-lang en | fa
+set -euo pipefail
+L="${1:-}"
+case "$L" in
+  fa) LANG='fa_IR.UTF-8'; LANGUAGE='fa_IR:fa:en_US:en' ;;
+  en) LANG='en_US.UTF-8'; LANGUAGE='en_US:en' ;;
+  *)  echo "usage: simorgh-lang en|fa"; exit 2 ;;
+esac
+mkdir -p "$HOME/.config/simorgh"
+cat > "$HOME/.config/simorgh/lang" <<EOF
+LANG=$LANG
+LANGUAGE=$LANGUAGE
+EOF
+echo "SimorghOS: language set to $L (applies to new sessions / log in again)."

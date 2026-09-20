@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Simorgh Setup
+Name[fa]=برپاسازی سیمرغ
+Comment=Language, calendar, theme & install
+Exec=/usr/share/simorgh/bin/simorgh-setup
+Icon=simorgh
+Terminal=false
+Categories=Simorgh;Settings;

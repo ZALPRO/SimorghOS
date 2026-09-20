@@ -1,0 +1,16 @@
+# SimorghOS — live sessions boot straight into the desktop;
+# installed systems keep the greeter.
+[Unit]
+Description=SimorghOS live autologin
+DefaultDependencies=no
+After=local-fs.target live-config.service
+Before=lightdm.service
+ConditionKernelCommandLine=boot=live
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/sh -c 'sed -i "s/^autologin-user=.*/autologin-user=user/" /etc/lightdm/lightdm.conf'
+
+[Install]
+WantedBy=multi-user.target

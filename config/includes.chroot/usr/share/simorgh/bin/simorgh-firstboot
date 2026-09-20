@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# SimorghOS — first login: open Setup (language, calendar, theme, install)
+FLAG="$HOME/.simorgh-setup-done"
+[ -e "$FLAG" ] && exit 0
+sleep 3
+touch "$FLAG"
+/usr/share/simorgh/bin/simorgh-setup &
+exit 0

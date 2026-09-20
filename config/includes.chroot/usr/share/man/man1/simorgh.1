@@ -1,0 +1,100 @@
+.TH SIMORGH 1 "SimorghOS 0.0.1" "SimorghOS" "User Commands"
+.SH NAME
+simorgh \- SimorghOS command hub (مرکز فرمان سیمرغ‌اواس)
+.SH SYNOPSIS
+.B simorgh
+.I command
+.RI [ arguments ]
+.SH DESCRIPTION
+.B simorgh
+is the unified command line interface of SimorghOS. It wraps package
+management (apt + Flathub), personalization (language, theme, calendar,
+wallpaper), daily tools (screenshot, recording, clipboard) and a user
+plugin system.
+.SH SYSTEM COMMANDS
+.TP
+.B update
+Full system upgrade: apt update + full-upgrade + flatpak update.
+.TP
+.BI install " pkg|app-id"
+Install a package. Arguments that look like a Flatpak application id
+(e.g. org.libreoffice.LibreOffice) are installed from Flathub;
+anything else is installed with apt.
+.TP
+.BI remove " pkg|app-id"
+Remove a package (Flatpak ids are uninstalled, others purged via apt).
+.TP
+.BI search " query"
+Search both apt and Flathub.
+.TP
+.B restore
+Open the Timeshift restore-point manager.
+.TP
+.B info
+Print a system summary (fastfetch).
+.SH PERSONALIZATION
+.TP
+.BI lang " en|fa"
+Switch the interface language between English and Persian.
+.TP
+.BI theme " dark|lapis|light"
+Switch the global theme (Hyprland, Waybar, Rofi, GTK, Qt, wallpaper).
+.TP
+.BI calendar " jalali|gregorian|both"
+Choose the calendar shown by simorgh-jdate and the panel.
+.TP
+.BI wallpaper " [list|file]"
+List or set the desktop wallpaper.
+.TP
+.B center
+Open the Control Center menu (rofi).
+.TP
+.B store
+Open the App Center (Flathub installer).
+.SH TOOLS
+.TP
+.B date
+Print today's date in the configured calendar (Jalali-aware).
+.TP
+.BR screenshot " [area]"
+Save a screenshot (full screen, or a selected region with
+.BR area ).
+.TP
+.BR record " start|stop"
+Start / stop screen recording (wf-recorder, saved to ~/Videos).
+.TP
+.B clipboard
+Pick an entry from the clipboard history (cliphist + rofi).
+.SH PLUGINS
+Any executable file placed in
+.IR ~/.config/simorgh/plugins/ ,
+.I /usr/local/share/simorgh/plugins/
+or
+.I /usr/share/simorgh/plugins/
+automatically becomes a subcommand:
+.BR "simorgh <name> [args]" .
+.TP
+.B plugins
+List all currently installed plugins.
+.SH FILES
+.TP
+.I /etc/simorgh/defaults
+System-wide defaults (calendar, digits, theme).
+.TP
+.I ~/.config/simorgh/prefs
+Per-user preferences.
+.TP
+.I ~/.config/simorgh/plugins/
+Per-user plugin directory.
+.SH EXAMPLES
+.nf
+simorgh install brave-browser
+simorgh install org.libreoffice.LibreOffice
+simorgh theme lapis
+simorgh calendar jalali
+simorgh lang fa
+simorgh screenshot area
+simorgh record start
+.fi
+.SH SEE ALSO
+simorgh-setup(1), timeshift(1), flatpak(1)

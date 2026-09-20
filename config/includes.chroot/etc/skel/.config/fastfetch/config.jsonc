@@ -1,0 +1,31 @@
+// SimorghOS — fastfetch (English by default, Jalali date module)
+{
+    "logo": {
+        "type": "ascii",
+        "source": "/usr/share/simorgh/ascii.txt",
+        "color": { "1": "36", "2": "33" }
+    },
+    "display": { "separator": "  " },
+    "modules": [
+        { "type": "title", "color": "36" },
+        { "type": "os", "key": "OS" },
+        { "type": "command", "key": "Calendar", "shell": "/usr/share/simorgh/bin/simorgh-jdate --long" },
+        { "type": "kernel", "key": "Kernel" },
+        { "type": "uptime", "key": "Uptime" },
+        { "type": "packages", "key": "Packages" },
+        { "type": "shell", "key": "Shell" },
+        { "type": "resolution", "key": "Display" },
+        { "type": "de", "key": "Desktop" },
+        { "type": "wm", "key": "Compositor" },
+        { "type": "theme", "key": "Theme" },
+        { "type": "icons", "key": "Icons" },
+        { "type": "font", "key": "Font" },
+        { "type": "cursor", "key": "Cursor" },
+        { "type": "terminal", "key": "Terminal" },
+        { "type": "cpu", "key": "CPU" },
+        { "type": "gpu", "key": "GPU" },
+        { "type": "memory", "key": "Memory" },
+        { "type": "disk", "key": "Disk" },
+        { "type": "locale", "key": "Locale" }
+    ]
+}

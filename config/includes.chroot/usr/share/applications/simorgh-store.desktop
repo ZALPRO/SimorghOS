@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Simorgh App Center
+Name[fa]=مرکز نرم‌افزار سیمرغ
+Comment=Install apps from Flathub
+Comment[fa]=نصب برنامه‌ها از Flathub
+Exec=/usr/share/simorgh/bin/simorgh-store
+Icon=simorgh
+Terminal=false
+Categories=System;Utility;SoftwareManagement;
+Keywords=store;apps;flatpak;install;

@@ -1,0 +1,163 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+سیمرغ‌اواس — خوش‌آمدگو
+پنجرهٔ خوش‌آمد با تاریخ جلالی، میان‌بر نصب و جابه‌جایی تم.
+GTK3 · راست‌چین · وزیرمتن
+"""
+import os
+import subprocess
+import sys
+
+sys.path.insert(0, "/usr/share/simorgh")
+from jalaali import (  # noqa: E402
+    fa_digits, jalaali_month_name, jalaali_weekday_name, to_jalaali,
+)
+
+try:
+    import gi
+    gi.require_version("Gtk", "3.0")
+    from gi.repository import Gtk, Gdk, GLib  # noqa: E402
+except Exception as exc:  # pragma: no cover
+    print(f"سیمرغ:GTK در دسترس نیست ({exc})", file=sys.stderr)
+    sys.exit(1)
+
+VERSION = "0.0.1"
+
+CSS = """
+window { background: #11111b; }
+.title { color: #94e2d5; font-size: 22px; font-weight: bold; }
+.subtitle { color: #a6adc8; font-size: 13px; }
+.date { color: #f9e2af; font-size: 15px; }
+button { border-radius: 10px; padding: 8px 14px; }
+"""
+
+THEMES = [("dark", "شبِ فیروزه (پیش‌فرض)"),
+          ("lapis", "لاجورد"),
+          ("light", "روزِ روشن")]
+
+
+class Welcome(Gtk.Window):
+    def __init__(self):
+        super().__init__(title="سیمرغ — خوش‌آمد")
+        self.set_default_size(760, 560)
+        self.set_position(Gtk.WindowPosition.CENTER)
+        self.set_direction(Gtk.TextDirection.RTL)
+        self.connect("destroy", Gtk.main_quit)
+
+        style = Gtk.CssProvider()
+        style.load_from_data(CSS.encode())
+        Gtk.StyleContext.add_provider_for_screen(
+            Gdk.Screen.get_default(), style,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+
+        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
+        vbox.set_margin_top(28); vbox.set_margin_bottom(28)
+        vbox.set_margin_start(32); vbox.set_margin_end(32)
+        self.add(vbox)
+
+        logo = Gtk.Image.new_from_file("/usr/share/pixmaps/simorgh.svg")
+        logo.set_pixel_size(96)
+        vbox.pack_start(logo, False, False, 0)
+
+        title = Gtk.Label(label="به سیمرغ خوش آمدید")
+        title.get_style_context().add_class("title")
+        vbox.pack_start(title, False, False, 0)
+
+        sub = Gtk.Label(label=f"سیمرغ‌اواس {VERSION} — لینوکس فارسی‌محور · "
+                              f"Debian 13 + Hyprland")
+        sub.get_style_context().add_class("subtitle")
+        sub.set_line_wrap(True)
+        vbox.pack_start(sub, False, False, 0)
+
+        import datetime
+        n = datetime.date.today()
+        jy, jm, jd = to_jalaali(n.year, n.month, n.day)
+        date = Gtk.Label(label=f"{jalaali_weekday_name(n.year, n.month, n.day)} "
+                               f"{fa_digits(jd)} {jalaali_month_name(jm)} "
+                               f"{fa_digits(jy)}  ·  {n:%d %B %Y}")
+        date.get_style_context().add_class("date")
+        vbox.pack_start(date, False, False, 6)
+
+        sep = Gtk.Separator()
+        vbox.pack_start(sep, False, False, 8)
+
+        # ── تم ─
+        tl = Gtk.Label(label="تم ظاهر:")
+        tl.set_halign(Gtk.Align.START)
+        vbox.pack_start(tl, False, False, 0)
+        self.theme_combo = Gtk.ComboBoxText()
+        for key, label in THEMES:
+            self.theme_combo.append(key, label)
+        self.theme_combo.set_active_id(
+            self._current_theme())
+        vbox.pack_start(self.theme_combo, False, False, 0)
+        apply_btn = Gtk.Button(label="اعمال تم")
+        apply_btn.connect("clicked", self._apply_theme)
+        vbox.pack_start(apply_btn, False, False, 0)
+
+        # ── دکمه‌ها ──
+        grid = Gtk.Grid()
+        grid.set_column_spacing(10)
+        grid.set_row_spacing(10)
+        grid.set_halign(Gtk.Align.CENTER)
+
+        install = Gtk.Button(label="نصب سیمرغ روی دیسک")
+        install.connect("clicked", self._install)
+        grid.attach(install, 0, 0, 1, 1)
+
+        kbd = Gtk.Button(label="راهنمای صفحه‌کلید فارسی")
+        kbd.connect("clicked", self._keyboard_help)
+        grid.attach(kbd, 1, 0, 1, 1)
+
+        about = Gtk.Button(label="درباره")
+        about.connect("clicked", self._about)
+        grid.attach(about, 2, 0, 1, 1)
+
+        vbox.pack_start(grid, False, False, 12)
+
+        tip = Gtk.Label(label="نکته: با Super+Space بین فارسی و انگلیسی "
+                              "جابه‌جا شوید.")
+        tip.get_style_context().add_class("subtitle")
+        vbox.pack_start(tip, False, False, 0)
+
+    # ── کنش‌ها ──────────────────────────────────────────────
+    @staticmethod
+    def _current_theme():
+        try:
+            with open(os.path.expanduser("~/.config/hypr/theme.conf"),
+                      encoding="utf-8") as f:
+                for line in f:
+                    if "تم فعال" in line:
+                        return line.split(":")[-1].strip()
+        except OSError:
+            pass
+        return "dark"
+
+    def _apply_theme(self, _btn):
+        key = self.theme_combo.get_active_id() or "dark"
+        subprocess.Popen(["/usr/share/simorgh/bin/simorgh-set-theme", key])
+
+    @staticmethod
+    def _install(_btn):
+        subprocess.Popen(["pkexec", "calamares"])
+
+    @staticmethod
+    def _keyboard_help(_btn):
+        subprocess.Popen(["xdg-open",
+                          "https://github.com/ZALPRO/SimorghOS/blob/main/"
+                          "docs/KEYBOARD-fa.md"])
+
+    @staticmethod
+    def _about(_btn):
+        subprocess.Popen(["xdg-open", "https://github.com/ZALPRO/SimorghOS"])
+
+
+def main():
+    win = Welcome()
+    win.show_all()
+    Gtk.main()
+
+
+if __name__ == "__main__":
+    main()

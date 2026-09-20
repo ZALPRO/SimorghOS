@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=Simorgh
+Description=سیمرغ‌اواس — اسپلش با سیمرغ زرّین
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/simorgh
+ScriptFile=/usr/share/plymouth/themes/simorgh/simorgh.script

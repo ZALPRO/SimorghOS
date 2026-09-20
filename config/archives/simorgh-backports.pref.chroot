@@ -1,0 +1,9 @@
+# سیمرغ‌اواس — اولویت backports برای پشتهٔ Hyprland
+# توجه: Suite مخزن backports برابر «stable-backports» است.
+Package: hyprland hyprland-guiutils hyprpaper hyprlock hypridle hyprpolkitagent xdg-desktop-portal-hyprland libhyprlang2 libhyprutils12 libhyprgraphics4 libhyprwire3 libhyprtoolkit5 hyprwayland-scanner libxkbcommon0 libxkbcommon-x11-0 libxkbregistry0
+Pin: release a=stable-backports
+Pin-Priority: 500
+
+Package: *
+Pin: release a=stable-backports
+Pin-Priority: 100

@@ -1,0 +1,30 @@
+# سیمرغ‌اواس — برندینگ Calamares
+---
+componentName: simorgh
+
+productName: سیمرغ‌اواس
+shortProductName: SimorghOS
+version: "0.0.1"
+shortVersion: "0.0.1"
+versionedName: SimorghOS 0.0.1
+shortVersionedName: SimorghOS 0.0.1
+bootloaderEntryName: SimorghOS
+productUrl: https://github.com/ZALPRO/SimorghOS
+supportUrl: https://github.com/ZALPRO/SimorghOS/issues
+knownIssuesUrl: https://github.com/ZALPRO/SimorghOS/issues
+releaseNotesUrl: https://github.com/ZALPRO/SimorghOS/releases
+
+strings:
+  sideBar: right
+
+images:
+  logo: logo.png
+  wallpaper: wallpaper.png
+
+style:
+  sidebarBackground: "#11111b"
+  sidebarText: "#cdd6f4"
+  sidebarBackgroundSelect: "#1e1e2e"
+  sidebarTextSelect: "#94e2d5"
+
+slideshow: ""

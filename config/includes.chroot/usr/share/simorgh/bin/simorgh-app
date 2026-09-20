@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+# simorgh-app — install / remove / search any application (apt + Flatpak/Flathub)
+# SimorghOS 0.0.1 — the user decides what the system contains.
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+simorgh-app — add or remove anything you like
+
+  simorgh-app install NAME [NAME…]   install from Debian repo, else Flathub
+  simorgh-app remove  NAME [NAME…]   remove (apt first, then flatpak)
+  simorgh-app search  TERM           search Debian repo and Flathub
+  simorgh-app browse                 open the App Center (Flathub) in Brave
+
+Examples:
+  simorgh-app install vlc telegram-desktop obs-studio
+  simorgh-app search editor
+  simorgh-app remove geany
+EOF
+}
+
+need_root() { [ "$(id -u)" = 0 ] && SUDO="" || SUDO="sudo"; }
+
+apt_has() { apt-cache policy "$1" 2>/dev/null | grep -q "Candidate:"; }
+
+flatpak_id() {  # print first flathub app id matching a term, or empty
+  flatpak search "$1" 2>/dev/null | awk 'NR>1 && $NF ~ /^[0-9.]+$/ {print $1; exit}'
+}
+
+cmd="${1:-}"; shift || true
+need_root
+
+case "$cmd" in
+  install)
+    [ $# -ge 1 ] || { usage; exit 1; }
+    for pkg in "$@"; do
+      if apt_has "$pkg"; then
+        echo "• apt: $pkg"
+        $SUDO apt-get install -y "$pkg"
+      else
+        id="$(flatpak_id "$pkg")"
+        if [ -n "$id" ]; then
+          echo "• flathub: $id"
+          flatpak install -y flathub "$id"
+        else
+          echo "✗ not found in Debian repo or Flathub: $pkg" >&2; exit 1
+        fi
+      fi
+    done
+    echo "✓ done"
+    ;;
+  remove)
+    [ $# -ge 1 ] || { usage; exit 1; }
+    for pkg in "$@"; do
+      if dpkg -s "$pkg" >/dev/null 2>&1; then
+        $SUDO apt-get remove -y "$pkg"
+      elif flatpak list 2>/dev/null | grep -qi "$pkg"; then
+        id="$(flatpak list | grep -i "$pkg" | awk '{print $NF}' | head -1)"
+        flatpak remove -y "$id"
+      else
+        echo "✗ not installed: $pkg" >&2
+      fi
+    done
+    ;;
+  search)
+    [ $# -ge 1 ] || { usage; exit 1; }
+    echo "── Debian repo:"; apt-cache search "$@" | head -20
+    echo "── Flathub:";     flatpak search "$@" 2>/dev/null | head -20 || true
+    ;;
+  browse)
+    xdg-open "https://flathub.org" &
+    ;;
+  *)
+    usage; exit 1
+    ;;
+esac

@@ -1,0 +1,194 @@
+#!/usr/bin/env bash
+# ─────────────────────────────────────────────────────────────
+#  SimorghOS 0.0.1 — simorgh: command hub / مرکز فرمان سیمرغ
+#  هر فایل اجرایی در پوشه‌های افزونه، خودکار زیرفرمان می‌شود.
+# ─────────────────────────────────────────────────────────────
+set -uo pipefail
+
+SIMORGH_VERSION="0.0.1"
+PLUG_DIRS=("$HOME/.config/simorgh/plugins" \
+           "/usr/local/share/simorgh/plugins" \
+           "/usr/share/simorgh/plugins")
+
+SUDO=""
+[[ $EUID -ne 0 ]] && SUDO="sudo"
+
+find_plugin() {
+    local d
+    for d in "${PLUG_DIRS[@]}"; do
+        [[ -x "$d/$1" ]] && { echo "$d/$1"; return 0; }
+    done
+    return 1
+}
+
+usage() {
+cat <<'EOF'
+SimorghOS 0.0.1 — the self-governing operating system
+سیمرغ‌اواس — سیستم‌عامل خودمختار
+
+Usage / کاربرد:  simorgh <command> [args]
+
+SYSTEM / سیستم
+  update                  apt + flatpak upgrade        به‌روزرسانی کامل
+  install <pkg|app-id>    apt or Flathub, auto-detect  نصب بسته/برنامه
+  remove  <pkg|app-id>    remove a package             حذف بسته/برنامه
+  search  <query>         search apt + Flathub         جست‌وجو
+  restore                 restore points (Timeshift)   نقاط بازیابی
+  info                    system summary               خلاصهٔ سیستم
+
+PERSONALIZE / شخصی‌سازی
+  lang     <en|fa>        interface language           زبان رابط
+  theme    <dark|lapis|light>
+  calendar <jalali|gregorian|both>
+  wallpaper [list|<file>] set desktop wallpaper        پس‌زمینه
+  center                  Control Center (menu)        مرکز کنترل
+  store                   App Center                   مرکز نرم‌افزار
+
+TOOLS / ابزارها
+  date                    Jalali date                  تاریخ جلالی
+  screenshot [area]       grab screen                  عکس از صفحه
+  record <start|stop>     screen recording             ضبط صفحه
+  clipboard               clipboard history picker     تاریخچهٔ کلیپ‌بورد
+
+EXTEND / افزونه‌ها
+  plugins                 list user plugins            فهرست افزونه‌ها
+  Drop any executable into ~/.config/simorgh/plugins/
+  and it becomes:  simorgh <name> [args]
+
+  help | version
+EOF
+}
+
+cmd_update() {
+    echo "── apt ──"; $SUDO apt-get update
+    $SUDO apt-get full-upgrade -y
+    $SUDO apt-get autoremove -y --purge
+    if command -v flatpak >/dev/null; then echo "── flatpak ──"; flatpak update -y; fi
+    echo "SimorghOS: up to date. ✔"
+}
+
+is_flatpak_id() { [[ "$1" =~ ^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_-]*){2,}$ ]]; }
+
+cmd_install() {
+    [[ $# -ge 1 ]] || { echo "simorgh install <pkg|app-id>" >&2; return 2; }
+    local p
+    for p in "$@"; do
+        if is_flatpak_id "$p" && command -v flatpak >/dev/null; then
+            flatpak install -y flathub "$p"
+        else
+            $SUDO apt-get install -y "$p"
+        fi
+    done
+}
+
+cmd_remove() {
+    [[ $# -ge 1 ]] || { echo "simorgh remove <pkg|app-id>" >&2; return 2; }
+    local p
+    for p in "$@"; do
+        if is_flatpak_id "$p" && command -v flatpak >/dev/null; then
+            flatpak uninstall -y "$p"
+        else
+            $SUDO apt-get purge -y "$p" && $SUDO apt-get autoremove -y --purge
+        fi
+    done
+}
+
+cmd_search() {
+    [[ $# -ge 1 ]] || { echo "simorgh search <query>" >&2; return 2; }
+    echo "── apt ──"; apt-cache search "$*" | head -20
+    if command -v flatpak >/dev/null; then echo "── flathub ──"; flatpak search "$*" | head -20; fi
+}
+
+cmd_wallpaper() {
+    local dir=/usr/share/backgrounds/simorgh
+    if [[ "${1:-}" == "list" || $# -eq 0 && "${1:-}" == "" ]]; then
+        [[ "${1:-}" == "list" ]] || true
+        ls "$dir"
+        return 0
+    fi
+    local f="$1"
+    [[ -f "$dir/$f" ]] || f="wallpaper-$f.png"
+    [[ -f "$dir/$f" ]] || { echo "not found: $1 (simorgh wallpaper list)" >&2; return 2; }
+    cat > "$HOME/.config/hypr/hyprpaper.conf" <<EOF
+preload = $dir/$f
+wallpaper = ,$dir/$f
+splash = false
+EOF
+    pkill -x hyprpaper 2>/dev/null; (hyprpaper &) 2>/dev/null
+    echo "SimorghOS: wallpaper → $f"
+}
+
+cmd_screenshot() {
+    mkdir -p "$HOME/Pictures"
+    local out="$HOME/Pictures/simorgh-$(date +%F-%H%M%S).png"
+    if [[ "${1:-}" == "area" ]]; then
+        grim -g "$(slurp)" "$out"
+    else
+        grim "$out"
+    fi
+    echo "saved: $out"
+}
+
+cmd_record() {
+    mkdir -p "$HOME/Videos"
+    case "${1:-start}" in
+        start)
+            local out="$HOME/Videos/simorgh-$(date +%F-%H%M%S).mp4"
+            echo "recording → $out (simorgh record stop)"
+            wf-recorder -f "$out" &
+            echo $! > /tmp/simorgh-rec.pid
+            ;;
+        stop)
+            [[ -f /tmp/simorgh-rec.pid ]] && kill -INT "$(cat /tmp/simorgh-rec.pid)" 2>/dev/null
+            rm -f /tmp/simorgh-rec.pid
+            echo "recording saved."
+            ;;
+        *) echo "simorgh record <start|stop>" >&2; return 2 ;;
+    esac
+}
+
+cmd_clipboard() {
+    cliphist list | rofi -dmenu -i -p "clipboard" | cliphist decode | wl-copy
+}
+
+cmd_plugins() {
+    local d f found=0
+    for d in "${PLUG_DIRS[@]}"; do
+        [[ -d "$d" ]] || continue
+        for f in "$d"/*; do
+            [[ -x "$f" ]] && { echo "$(basename "$f")  ←  $f"; found=1; }
+        done
+    done
+    [[ $found == 0 ]] && echo "(no plugins yet — drop executables in ~/.config/simorgh/plugins/)"
+    return 0
+}
+
+# ── dispatch ──
+CMD="${1:-help}"; shift || true
+case "$CMD" in
+    help|-h|--help)      usage ;;
+    version|--version)   echo "SimorghOS $SIMORGH_VERSION"; grep PRETTY_NAME /etc/os-release | cut -d= -f2 ;;
+    update)              cmd_update ;;
+    install|add)         cmd_install "$@" ;;
+    remove|rm)           cmd_remove "$@" ;;
+    search)              cmd_search "$@" ;;
+    restore)             pkexec timeshift-gtk & ;;
+    info)                fastfetch ;;
+    lang)                /usr/share/simorgh/bin/simorgh-lang "$@" ;;
+    theme)               /usr/share/simorgh/bin/simorgh-set-theme "$@" ;;
+    calendar)            sed -i "s/^calendar=.*/calendar=${1:-jalali}/" "$HOME/.config/simorgh/prefs" 2>/dev/null \
+                             || { mkdir -p "$HOME/.config/simorgh"; echo "calendar=${1:-jalali}" > "$HOME/.config/simorgh/prefs"; }
+                         echo "calendar → ${1:-jalali}" ;;
+    wallpaper)           cmd_wallpaper "$@" ;;
+    center)              /usr/share/simorgh/bin/simorgh-center ;;
+    store)               /usr/share/simorgh/bin/simorgh-store ;;
+    date|jdate)          /usr/share/simorgh/bin/simorgh-jdate ;;
+    screenshot|shot)     cmd_screenshot "$@" ;;
+    record)              cmd_record "$@" ;;
+    clipboard|clip)      cmd_clipboard ;;
+    plugins)             cmd_plugins ;;
+    *)
+        if P="$(find_plugin "$CMD")"; then exec "$P" "$@"; fi
+        echo "simorgh: unknown command '$CMD' — try: simorgh help" >&2
+        exit 2 ;;
+esac

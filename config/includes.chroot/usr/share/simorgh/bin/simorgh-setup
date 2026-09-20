@@ -1,0 +1,193 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+SimorghOS Setup — language, calendar, theme & install.
+دوزبانه: English / فارسی — the user chooses BEFORE installing.
+"""
+import datetime
+import os
+import subprocess
+import sys
+
+sys.path.insert(0, "/usr/share/simorgh")
+from jalaali import fa_digits, jalaali_month_name, jalaali_weekday_name, to_jalaali  # noqa: E402
+
+try:
+    import gi
+    gi.require_version("Gtk", "3.0")
+    from gi.repository import Gtk, Gdk  # noqa: E402
+except Exception as exc:  # pragma: no cover
+    print(f"SimorghOS: GTK unavailable ({exc})", file=sys.stderr)
+    sys.exit(1)
+
+T = {
+    "en": dict(
+        title="Simorgh Setup", welcome="Welcome to SimorghOS",
+        sub="SimorghOS 0.0.1 — the self-governing operating system",
+        lang="Language / زبان", cal="Calendar", theme="Appearance",
+        apply="Apply", install="Install SimorghOS", kbd="Keyboard guide",
+        about="About", tip="Tip: Super+Space switches English/Persian.",
+        cal_j="Jalali (Persian)", cal_g="Gregorian", cal_b="Both",
+        th_d="Simorgh Night (default)", th_l="Lapis", th_w="Daylight",
+    ),
+    "fa": dict(
+        title="برپاسازی سیمرغ", welcome="به سیمرغ‌اواس خوش آمدید",
+        sub="سیمرغ‌اواس ۰٫۰٫۱ — سیستم‌عامل خودمختار",
+        lang="Language / زبان", cal="تقویم", theme="ظاهر",
+        apply="اعمال", install="نصب سیمرغ‌اواس", kbd="راهنمای صفحه‌کلید",
+        about="درباره", tip="نکته: با Super+Space بین فارسی و انگلیسی جابه‌جا شوید.",
+        cal_j="جلالی (فارسی)", cal_g="میلادی", cal_b="هر دو",
+        th_d="شبِ فیروزه (پیش‌فرض)", th_l="لاجورد", th_w="روزِ روشن",
+    ),
+}
+
+CSS = """
+window { background: #11111b; }
+.title { color: #94e2d5; font-size: 22px; font-weight: bold; }
+.subtitle { color: #a6adc8; font-size: 13px; }
+.date { color: #f9e2af; font-size: 15px; }
+label { color: #cdd6f4; }
+button { border-radius: 10px; padding: 8px 14px; }
+"""
+
+
+def prefs_path():
+    return os.path.expanduser("~/.config/simorgh/prefs")
+
+
+def read_prefs():
+    p = {"calendar": "jalali", "theme": "dark"}
+    for path in ("/etc/simorgh/defaults", prefs_path()):
+        try:
+            for line in open(path, encoding="utf-8"):
+                if "=" in line:
+                    k, v = line.split("=", 1)
+                    p[k.strip()] = v.strip()
+        except OSError:
+            pass
+    return p
+
+
+class Setup(Gtk.Window):
+    def __init__(self):
+        super().__init__(title="Simorgh Setup")
+        self.set_default_size(720, 620)
+        self.set_position(Gtk.WindowPosition.CENTER)
+        self.connect("destroy", Gtk.main_quit)
+        style = Gtk.CssProvider()
+        style.load_from_data(CSS.encode())
+        Gtk.StyleContext.add_provider_for_screen(
+            Gdk.Screen.get_default(), style,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        self.lang = "fa" if os.environ.get("LANG", "").startswith("fa") else "en"
+        self.build()
+
+    def build(self):
+        t = T[self.lang]
+        self.set_direction(Gtk.TextDirection.RTL if self.lang == "fa"
+                           else Gtk.TextDirection.LTR)
+        for ch in self.get_children():
+            self.remove(ch)
+        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        vbox.set_margin_top(24); vbox.set_margin_bottom(24)
+        vbox.set_margin_start(30); vbox.set_margin_end(30)
+        self.add(vbox)
+
+        logo = Gtk.Image.new_from_file("/usr/share/pixmaps/simorgh.png")
+        logo.set_pixel_size(88)
+        vbox.pack_start(logo, False, False, 0)
+
+        h = Gtk.Label(label=t["welcome"]); h.get_style_context().add_class("title")
+        vbox.pack_start(h, False, False, 0)
+        s = Gtk.Label(label=t["sub"]); s.get_style_context().add_class("subtitle")
+        s.set_line_wrap(True)
+        vbox.pack_start(s, False, False, 0)
+
+        n = datetime.date.today()
+        jy, jm, jd = to_jalaali(n.year, n.month, n.day)
+        date = Gtk.Label(label=f"{jalaali_weekday_name(n.year, n.month, n.day)} "
+                               f"{fa_digits(jd)} {jalaali_month_name(jm)} "
+                               f"{fa_digits(jy)}  ·  {n:%d %B %Y}")
+        date.get_style_context().add_class("date")
+        vbox.pack_start(date, False, False, 4)
+
+        vbox.pack_start(Gtk.Separator(), False, False, 4)
+
+        # language
+        lbl = Gtk.Label(label=t["lang"]); lbl.set_halign(Gtk.Align.START)
+        vbox.pack_start(lbl, False, False, 0)
+        self.lang_combo = Gtk.ComboBoxText()
+        self.lang_combo.append("en", "English")
+        self.lang_combo.append("fa", "فارسی")
+        self.lang_combo.set_active_id(self.lang)
+        vbox.pack_start(self.lang_combo, False, False, 0)
+
+        # calendar
+        lbl = Gtk.Label(label=t["cal"]); lbl.set_halign(Gtk.Align.START)
+        vbox.pack_start(lbl, False, False, 0)
+        self.cal_combo = Gtk.ComboBoxText()
+        self.cal_combo.append("jalali", t["cal_j"])
+        self.cal_combo.append("gregorian", t["cal_g"])
+        self.cal_combo.append("both", t["cal_b"])
+        self.cal_combo.set_active_id(read_prefs().get("calendar", "jalali"))
+        vbox.pack_start(self.cal_combo, False, False, 0)
+
+        # theme
+        lbl = Gtk.Label(label=t["theme"]); lbl.set_halign(Gtk.Align.START)
+        vbox.pack_start(lbl, False, False, 0)
+        self.theme_combo = Gtk.ComboBoxText()
+        self.theme_combo.append("dark", t["th_d"])
+        self.theme_combo.append("lapis", t["th_l"])
+        self.theme_combo.append("light", t["th_w"])
+        self.theme_combo.set_active_id(read_prefs().get("theme", "dark"))
+        vbox.pack_start(self.theme_combo, False, False, 0)
+
+        applyb = Gtk.Button(label=t["apply"])
+        applyb.connect("clicked", self._apply)
+        vbox.pack_start(applyb, False, False, 4)
+
+        vbox.pack_start(Gtk.Separator(), False, False, 4)
+        grid = Gtk.Grid(); grid.set_column_spacing(10); grid.set_row_spacing(10)
+        grid.set_halign(Gtk.Align.CENTER)
+        b1 = Gtk.Button(label=t["install"]); b1.connect("clicked", self._install)
+        b2 = Gtk.Button(label=t["kbd"]); b2.connect("clicked", self._kbd)
+        b3 = Gtk.Button(label=t["about"]); b3.connect("clicked", self._about)
+        grid.attach(b1, 0, 0, 1, 1); grid.attach(b2, 1, 0, 1, 1)
+        grid.attach(b3, 2, 0, 1, 1)
+        vbox.pack_start(grid, False, False, 6)
+
+        tip = Gtk.Label(label=t["tip"]); tip.get_style_context().add_class("subtitle")
+        vbox.pack_start(tip, False, False, 0)
+        self.show_all()
+
+    # ── actions ──
+    def _apply(self, _b):
+        newlang = self.lang_combo.get_active_id()
+        cal = self.cal_combo.get_active_id()
+        theme = self.theme_combo.get_active_id()
+        os.makedirs(os.path.expanduser("~/.config/simorgh"), exist_ok=True)
+        with open(prefs_path(), "w", encoding="utf-8") as f:
+            f.write(f"calendar={cal}\ntheme={theme}\ndigits=auto\n")
+        subprocess.Popen(["/usr/share/simorgh/bin/simorgh-set-theme", theme])
+        if newlang != self.lang:
+            subprocess.Popen(["/usr/share/simorgh/bin/simorgh-lang", newlang])
+            self.lang = newlang
+            self.build()
+
+    @staticmethod
+    def _install(_b):
+        subprocess.Popen(["pkexec", "calamares"])
+
+    @staticmethod
+    def _kbd(_b):
+        subprocess.Popen(["xdg-open",
+                          "https://github.com/ZALPRO/SimorghOS/blob/main/docs/KEYBOARD-fa.md"])
+
+    @staticmethod
+    def _about(_b):
+        subprocess.Popen(["xdg-open", "https://github.com/ZALPRO/SimorghOS"])
+
+
+if __name__ == "__main__":
+    w = Setup()
+    Gtk.main()

@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# ─────────────────────────────────────────────────────────────
+#  SimorghOS 0.0.1 — Control Center / مرکز کنترل سیمرغ
+#  منوی شیشه‌ای rofi برای تنظیمات روزمره
+# ─────────────────────────────────────────────────────────────
+set -uo pipefail
+
+R="rofi -dmenu -i -p"
+WALLDIR=/usr/share/backgrounds/simorgh
+PREFS="$HOME/.config/simorgh/prefs"
+mkdir -p "$HOME/.config/simorgh"
+
+sub() { printf '%s\n' "$@" | $R "$1"; }
+
+choice=$($R "Simorgh Center" <<'EOF'
+🌐 Language / زبان
+🎨 Theme / پوسته
+📅 Calendar / تقویم
+🖼 Wallpaper / پس‌زمینه
+🔋 Power profile / پروفایل نیرو
+📦 App Center / مرکز نرم‌افزار
+🔄 Update system / به‌روزرسانی
+💾 Restore points / نقاط بازیابی
+🛡 Firewall / دیوار آتش
+🖥 Displays / نمایشگرها
+🔊 Sound / صدا
+📀 Disks / دیسک‌ها
+📈 Task manager / پایشگر سیستم
+🖨 Printers / چاپگرها
+ℹ️ About / درباره
+EOF
+)
+
+case "$choice" in
+"🌐 Language / زبان")
+    l=$(sub Language English فارسی)
+    [[ "$l" == "فارسی" ]] && /usr/share/simorgh/bin/simorgh-lang fa
+    [[ "$l" == "English" ]] && /usr/share/simorgh/bin/simorgh-lang en
+    ;;
+"🎨 Theme / پوسته")
+    t=$(sub Theme dark lapis light)
+    [[ -n "$t" ]] && /usr/share/simorgh/bin/simorgh-set-theme "$t"
+    ;;
+"📅 Calendar / تقویم")
+    c=$(sub Calendar jalali gregorian both)
+    [[ -n "$c" ]] && /usr/share/simorgh/bin/simorgh calendar "$c"
+    ;;
+"🖼 Wallpaper / پس‌زمینه")
+    w=$(ls "$WALLDIR" | $R Wallpaper)
+    [[ -n "$w" ]] && /usr/share/simorgh/bin/simorgh wallpaper "$w"
+    ;;
+"🔋 Power profile / پروفایل نیرو")
+    p=$(sub Power balanced performance power-saver)
+    [[ -n "$p" ]] && powerprofilesctl set "$p"
+    ;;
+"📦 App Center / مرکز نرم‌افزار")  /usr/share/simorgh/bin/simorgh-store ;;
+"🔄 Update system / به‌روزرسانی")  kitty --title "Simorgh update" bash -c "simorgh update; echo; read -rp 'Enter…'" & ;;
+"💾 Restore points / نقاط بازیابی") pkexec timeshift-gtk & ;;
+"🛡 Firewall / دیوار آتش")          pkexec gufw & ;;
+"🖥 Displays / نمایشگرها")          wdisplays & ;;
+"🔊 Sound / صدا")                   pavucontrol & ;;
+"📀 Disks / دیسک‌ها")               gnome-disks & ;;
+"📈 Task manager / پایشگر سیستم")   gnome-system-monitor & ;;
+"🖨 Printers / چاپگرها")            system-config-printer & ;;
+"ℹ️ About / درباره")                kitty --title "About SimorghOS" bash -c "fastfetch; read -rp 'Enter…'" & ;;
+esac
+exit 0

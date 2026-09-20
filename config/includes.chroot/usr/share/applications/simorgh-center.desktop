@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Simorgh Center
+Name[fa]=مرکز کنترل سیمرغ
+Comment=Control Center: language, theme, calendar, wallpaper, updates
+Comment[fa]=مرکز کنترل: زبان، پوسته، تقویم، پس‌زمینه، به‌روزرسانی
+Exec=/usr/share/simorgh/bin/simorgh-center
+Icon=simorgh
+Terminal=false
+Categories=Settings;System;
+Keywords=settings;control;theme;language;calendar;

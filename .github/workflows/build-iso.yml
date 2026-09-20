@@ -1,0 +1,81 @@
+# SimorghOS 0.0.1 — official ISO build on GitHub Actions
+name: Build SimorghOS ISO
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install jcal for cross-check
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq jcal
+      - name: Jalali engine tests
+        run: python3 tools/test_jalaali.py
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+                      /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
+          sudo apt-get clean || true
+          df -h /
+
+      - name: Build dependencies (Debian trixie debootstrap)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq live-build xorriso squashfs-tools \
+                 dosfstools mtools rsync figlet curl debian-archive-keyring
+          # trixie-aware debootstrap: pull the .deb straight from the pool,
+          # overlay it, and never mix Debian packages into Ubuntu's dpkg
+          SNAP=http://snapshot.debian.org/archive/debian/20260713T000000Z
+          curl -fsSL -o /tmp/db.deb  $SNAP/pool/main/d/debootstrap/debootstrap_1.0.141_all.deb
+          curl -fsSL -o /tmp/lb.deb  $SNAP/pool/main/l/live-build/live-build_20250505+deb13u1_all.deb
+          curl -fsSL -o /tmp/kk.deb $SNAP/pool/main/d/debian-archive-keyring/debian-archive-keyring_2025.1_all.deb
+          dpkg-deb -x /tmp/db.deb /tmp/dbx
+          dpkg-deb -x /tmp/lb.deb /tmp/lbx
+          dpkg-deb -x /tmp/kk.deb /tmp/kkx
+          sudo cp -a /tmp/kkx/usr/share/keyrings/. /usr/share/keyrings/
+          sudo cp -a /tmp/dbx/usr/share/debootstrap/. /usr/share/debootstrap/
+          sudo cp -a /tmp/dbx/usr/sbin/debootstrap /usr/sbin/debootstrap
+          sudo cp -a /tmp/lbx/usr/lib/live/. /usr/lib/live/
+          sudo cp -a /tmp/lbx/usr/share/live/build/. /usr/share/live/build/
+          sudo cp -a /tmp/lbx/usr/bin/lb /usr/bin/lb
+          debootstrap --version
+          lb --version
+
+      - name: Build ISO
+        run: sudo -E ./build.sh
+        timeout-minutes: 120
+
+      - name: Show result
+        run: |
+          ls -la dist/
+          cat dist/*.sha256
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.iso
+            dist/*.sha256
+          body: |
+            SimorghOS 0.0.1 — the self-governing operating system
+
+            **Install:** write the ISO to a USB stick (balenaEtcher / `dd`),
+            boot, and follow the installer.
+            **Verify:** `sha256sum -c simorgh-os-0.0.1-amd64.iso.sha256`
+
+            سیمرغ‌اواس ۰٫۰٫۱ — ISO را روی فلش بنویسید، بوت کنید و نصب را دنبال کنید.

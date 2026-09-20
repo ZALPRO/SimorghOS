@@ -1,0 +1,4 @@
+#!/bin/sh
+# live-build only executes hooks when a hooks/live entry exists;
+# the real work lives in hooks/normal.
+exit 0

@@ -1,0 +1,90 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+SimorghOS — date & calendar (configurable)
+prefs key `calendar` in ~/.config/simorgh/prefs or /etc/simorgh/defaults:
+    jalali | gregorian | both
+prefs key `digits`: fa | latin | auto (auto follows LANG)
+
+usage:
+    simorgh-jdate            → long form
+    simorgh-jdate --short    → compact
+    simorgh-jdate --waybar   → JSON for Waybar
+    simorgh-jdate --latin    → force latin digits
+"""
+import datetime
+import json
+import os
+import sys
+
+sys.path.insert(0, "/usr/share/simorgh")
+from jalaali import (  # noqa: E402
+    fa_digits, jalaali_month_name, jalaali_weekday_name, to_jalaali,
+)
+
+MONTHS_EN = ("January", "February", "March", "April", "May", "June",
+             "July", "August", "September", "October", "November", "December")
+WD_EN = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday",
+         "Saturday", "Sunday")
+
+
+def read_prefs():
+    prefs = {"calendar": "jalali", "digits": "auto"}
+    for path in ("/etc/simorgh/defaults",
+                 os.path.expanduser("~/.config/simorgh/prefs")):
+        try:
+            with open(path, encoding="utf-8") as f:
+                for line in f:
+                    if "=" in line and not line.strip().startswith("#"):
+                        k, v = line.split("=", 1)
+                        prefs[k.strip()] = v.strip()
+        except OSError:
+            pass
+    return prefs
+
+
+def main() -> int:
+    args = set(sys.argv[1:])
+    prefs = read_prefs()
+    now = datetime.datetime.now()
+    fa_ui = os.environ.get("LANG", os.environ.get("LANGUAGE", "")).startswith("fa")
+    digits_fa = (prefs.get("digits", "auto") == "fa") or (
+        prefs.get("digits", "auto") == "auto" and fa_ui)
+    if "--latin" in args:
+        digits_fa = False
+    cal = prefs.get("calendar", "jalali")
+
+    jy, jm, jd = to_jalaali(now.year, now.month, now.day)
+    wd_fa = jalaali_weekday_name(now.year, now.month, now.day)
+    wd_en = WD_EN[now.weekday()]
+
+    def num(x):
+        return fa_digits(x) if digits_fa else str(x)
+
+    j_long = f"{wd_fa} {num(jd)} {jalaali_month_name(jm)} {num(jy)}"
+    j_short = f"{num(jy)}/{num(jm)}/{num(jd)}"
+    g_long = f"{wd_en} {now.day} {MONTHS_EN[now.month - 1]} {now.year}"
+    g_short = f"{now.year}-{now.month:02d}-{now.day:02d}"
+
+    if cal == "gregorian":
+        long_s, short_s = g_long, g_short
+    elif cal == "both":
+        long_s, short_s = f"{j_long}  ·  {g_long}", f"{j_short} | {g_short}"
+    else:
+        long_s, short_s = j_long, j_short
+
+    if "--waybar" in args:
+        print(json.dumps({
+            "text": short_s,
+            "tooltip": f"{long_s}\n{now:%H:%M}",
+            "alt": cal,
+        }, ensure_ascii=False))
+    elif "--short" in args:
+        print(short_s)
+    else:
+        print(long_s)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
