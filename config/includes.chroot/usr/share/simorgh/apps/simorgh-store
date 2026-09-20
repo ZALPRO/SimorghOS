@@ -39,7 +39,7 @@ CATALOG = [
     ("libreoffice", "LibreOffice", "سریهٔ آفیس: کلم، کلس، ایمی و…", "x-office-document", "apt", "libreoffice", "productivity"),
     ("onlyoffice", "ONLYOFFICE", "سریهٔ آفیس سازگار با Office.", "ru.onlyoffice.desktopeditors", "flathub", "ru.onlyoffice.desktopeditors", "productivity"),
     ("calibre", "Calibre", "مدیریت کتاب الکترونیکی.", "calibre", "apt", "calibre", "productivity"),
-    ("org.freedesktop", "Notes", "یادداشت‌های سریع.", "text-editor", "apt", "org", "productivity"),
+    ("joplin", "Joplin", "یادداشت‌برداری و سازمان‌دهی.", "Joplin", "flathub", "md.joplin.Joplin", "productivity"),
     ("gimp", "GIMP", "تدوین و ویرایش تصویر حرفه‌ای.", "graphics-gimp", "apt", "gimp", "graphics"),
     ("inkscape", "Inkscape", "طراحی برداری (SVG) متن‌باز.", "applications-graphics", "apt", "inkscape", "graphics"),
     ("krita", "Krita", "نقاشی دیجیتال و کمیک.", "com.kde.krita", "flathub", "org.kde.krita", "graphics"),
