@@ -111,3 +111,19 @@ overshoot.top { background: none; }
 .pill:hover { background: alpha(@overlay, 0.9); color: @text; }
 .pill-active { background: @accent; color: @bg; font-weight: 700; }
 .pill-active:hover { background: @accent; color: @bg; }
+
+/* ── simorgh-settings ────────────────────────────────────────────── */
+.settings-side { background: alpha(@surface, .6); padding: 10px; }
+.settings-item {
+    border-radius: 12px; padding: 10px 12px; color: @subtext;
+    background: transparent; border: none; transition: all .18s ease;
+}
+.settings-item:hover { background: alpha(@overlay, .7); color: @text; }
+.settings-active { background: @accent; color: @bg; font-weight: 700; }
+.settings-h { font-weight: 700; font-size: 13pt; color: @text; }
+.settings-row { padding: 6px 0; }
+.settings-k { color: @subtext; font-weight: 600; }
+.settings-v { color: @text; }
+.wall-thumb { border-radius: 12px; border: 2px solid alpha(@overlay, .8); overflow: hidden; }
+.wall-thumb:hover { border-color: alpha(@accent, .7); }
+.wall-active { border-color: @accent !important; box-shadow: 0 0 0 3px alpha(@accent, .3); }

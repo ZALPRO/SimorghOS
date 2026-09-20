@@ -1,0 +1,313 @@
+#!/usr/bin/env python3
+"""simorgh-settings — SimorghOS unified settings.
+
+Sections: Appearance (theme + wallpaper), Language, Calendar,
+Accessibility, and System info. Drives the existing simorgh-* tooling and
+the shared ~/.config/simorgh/prefs file so every change is consistent with
+the CLI and the individual apps.
+"""
+import os
+import sys
+
+sys.path.insert(0, "/usr/share/simorgh")
+import ui  # noqa: E402
+
+from gi.repository import Gtk, GLib  # noqa: E402
+
+PREFS = os.path.expanduser("~/.config/simorgh/prefs")
+WALLDIR = "/usr/share/backgrounds/simorgh"
+VERSION = "0.0.1"
+
+SECTIONS = [
+    ("appearance", "Appearance", "applications-graphics"),
+    ("language", "Language", "input-keyboard"),
+    ("calendar", "Calendar", "x-office-calendar"),
+    ("accessibility", "Accessibility", "accessibility"),
+    ("system", "System", "computer"),
+]
+
+
+def read_prefs():
+    d = {}
+    if os.path.exists(PREFS):
+        for line in open(PREFS):
+            line = line.strip()
+            if "=" in line and not line.startswith("#"):
+                k, v = line.split("=", 1)
+                d[k.strip()] = v.strip()
+    return d
+
+
+def write_prefs(d):
+    os.makedirs(os.path.dirname(PREFS), exist_ok=True)
+    with open(PREFS, "w") as f:
+        for k, v in d.items():
+            f.write(f"{k}={v}\n")
+
+
+class Settings:
+    def __init__(self):
+        self.prefs = read_prefs()
+        self.app = ui.init("Settings", 900, 620)
+        self.app.get_style_context().add_class("simorgh")
+        hb = ui.header(self.app, "Settings", "سیمرغ‌اواس 0.0.1", "preferences-system")
+        self._build(hb)
+        self.app.show_all()
+        self._show_section("appearance")
+
+    def _build(self, hb):
+        root = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        self.app.add(root)
+
+        # left: section list
+        side = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        side.set_size_request(230, -1)
+        side.get_style_context().add_class("settings-side")
+        for key, fa, icon in SECTIONS:
+            btn = Gtk.Button()
+            row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+            img = Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.MENU)
+            row.pack_start(img, False, False, 0)
+            row.pack_start(Gtk.Label(label=fa, xalign=0), False, False, 0)
+            btn.add(row)
+            btn.set_relief(Gtk.ReliefStyle.NONE)
+            btn.get_style_context().add_class("settings-item")
+            btn.set_name(key)
+            btn.connect("clicked", lambda w, k=key: self._show_section(k))
+            side.pack_start(btn, False, False, 0)
+            self.side_btns = getattr(self, "side_btns", {})
+            self.side_btns[key] = btn
+        root.pack_start(side, False, False, 0)
+
+        # right: content stack
+        self.stack = Gtk.Stack()
+        self.stack.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
+        self.stack.set_transition_duration(180)
+        for key, fa, icon in SECTIONS:
+            page = self._page(key)
+            self.stack.add_named(page, key)
+        root.pack_start(self.stack, True, True, 0)
+
+    def _show_section(self, key):
+        self.stack.set_visible_child_name(key)
+        for k, b in self.side_btns.items():
+            b.get_style_context().remove_class("settings-active")
+            if k == key:
+                b.get_style_context().add_class("settings-active")
+
+    # ── helpers ────────────────────────────────────────────────────────────
+    def _page(self, key):
+        p = {
+            "appearance": self._appearance,
+            "language": self._language,
+            "calendar": self._calendar,
+            "accessibility": self._accessibility,
+            "system": self._system,
+        }[key]()
+        p.set_margin_start(18)
+        p.set_margin_end(18)
+        p.set_margin_top(14)
+        p.set_margin_bottom(14)
+        return p
+
+    def _h(self, text):
+        l = Gtk.Label(label=text, xalign=0)
+        l.get_style_context().add_class("settings-h")
+        return l
+
+    def _radio_row(self, group, label, active, on_toggled):
+        r = Gtk.RadioButton.new_with_label_from_widget(None if group is None else group, label)
+        r.set_active(bool(active))
+        if on_toggled:
+            r.connect("toggled", on_toggled)
+        return r
+
+    def _toggle_row(self, label, key, on=True):
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        row.get_style_context().add_class("settings-row")
+        row.pack_start(Gtk.Label(label=label, xalign=0), True, True, 0)
+        sw = Gtk.Switch()
+        sw.set_active(bool(self.prefs.get(key, "1" if on else "0")) in ("1", "true", "on"))
+        sw.connect("notify::active", lambda s, k=key: self._set_pref(k, "1" if s.get_active() else "0"))
+        row.pack_end(sw, False, False, 0)
+        return row
+
+    def _set_pref(self, key, val, apply=None):
+        self.prefs[key] = val
+        write_prefs(self.prefs)
+        if apply:
+            try:
+                apply(val)
+            except Exception:
+                pass
+
+    def _run(self, argv):
+        ui.run_cmd(argv)
+
+    # ── pages ──────────────────────────────────────────────────────────────
+    def _appearance(self):
+        b = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
+        b.pack_start(self._h("تم"), False, False, 0)
+        themes = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        cur = self.prefs.get("theme", "dark")
+        for name, fa in (("dark", "تاریک (شبِ فیروزه)"), ("lapis", "لاجوردی"), ("light", "روشن")):
+            r = self._radio_row(None if name == "dark" else themes.get_children()[0] if themes.get_children() else None,
+                                fa, cur == name, None)
+            r.set_name(name)
+            r.connect("toggled", lambda w, n=name: w.get_active() and self._run(["simorgh-set-theme", n]))
+            themes.pack_start(r, False, False, 0)
+        b.pack_start(themes, False, False, 0)
+
+        b.pack_start(self._h("تصویر پس‌زمینه"), False, False, 6)
+        wall = Gtk.FlowBox()
+        wall.set_selection_mode(Gtk.SelectionMode.SINGLE)
+        wall.set_min_children_per_line(3)
+        wall.set_max_children_per_line(3)
+        wall.set_column_spacing(10)
+        wall.set_row_spacing(10)
+        cur_wall = self.prefs.get("wallpaper", "wallpaper-simorgh-dark.png")
+        try:
+            for f in sorted(os.listdir(WALLDIR)):
+                if not f.lower().endswith((".png", ".jpg")):
+                    continue
+                ev = Gtk.EventBox()
+                ev.set_size_request(150, 84)
+                ev.get_style_context().add_class("wall-thumb")
+                pic = Gtk.Image.new_from_file(os.path.join(WALLDIR, f))
+                pic.set_pixel_size(150)
+                ev.add(pic)
+                ev.set_tooltip_text(f)
+                ev.connect("button-press-event", lambda w, fn=f: self._set_wall(fn))
+                if fn == cur_wall:
+                    ev.get_style_context().add_class("wall-active")
+                wall.add(ev)
+        except Exception:
+            pass
+        b.pack_start(wall, True, True, 0)
+        return b
+
+    def _set_wall(self, fn):
+        self._set_pref("wallpaper", fn,
+                       apply=lambda v: self._run(["simorgh", "wallpaper", v]))
+        for c in self.app.get_children():
+            pass
+
+    def _language(self):
+        b = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        b.pack_start(self._h("زبان سیستم"), False, False, 0)
+        langs = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        cur = self.prefs.get("lang", "fa")
+        for code, fa in (("fa", "فارسی"), ("en", "English")):
+            r = self._radio_row(None if code == "fa" else langs.get_children()[0] if langs.get_children() else None,
+                                fa, cur == code, None)
+            r.connect("toggled", lambda w, c=code: w.get_active() and self._set_pref("lang", c,
+                                                                                  apply=lambda v: self._run(["simorgh-lang", v])))
+            langs.pack_start(r, False, False, 0)
+        b.pack_start(langs, False, False, 0)
+        note = Gtk.Label(label="تغییر زبان برای نشست‌های جدید اعمال می‌شود (خروج و ورود مجدد).",
+                         xalign=0, wrap=True)
+        note.get_style_context().add_class("subtitle")
+        b.pack_start(note, False, False, 6)
+        return b
+
+    def _calendar(self):
+        b = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        b.pack_start(self._h("تقویم پیش‌فرض"), False, False, 0)
+        cal = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        cur = self.prefs.get("calendar", "jalali")
+        for code, fa in (("jalali", "جلالی (شمسی)"), ("gregorian", "میلادی"), ("both", "هر دو")):
+            r = self._radio_row(None if code == "jalali" else cal.get_children()[0] if cal.get_children() else None,
+                                fa, cur == code, None)
+            r.connect("toggled", lambda w, c=code: w.get_active() and self._set_pref("calendar", c))
+            cal.pack_start(r, False, False, 0)
+        b.pack_start(cal, False, False, 0)
+        return b
+
+    def _accessibility(self):
+        b = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        b.pack_start(self._h("دسترسی‌پذیری"), False, False, 0)
+        b.pack_start(self._toggle_row("کاهش حرکت", "a11y_reduce_motion"), False, False, 0)
+        b.pack_start(self._toggle_row("فیلتر رنگ (گرم)", "a11y_color_filter"), False, False, 0)
+        note = Gtk.Label(label="تغییرات بلافاصله و بدون نیاز به ورود مجدد اعمال می‌شوند.",
+                         xalign=0, wrap=True)
+        note.get_style_context().add_class("subtitle")
+        b.pack_start(note, False, False, 6)
+        return b
+
+    def _system(self):
+        b = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        b.pack_start(self._h("درباره سیمرغ‌اواس"), False, False, 0)
+        info = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        info.get_style_context().add_class("simorgh-card")
+
+        def row(k, v):
+            rb = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+            kl = Gtk.Label(label=k, xalign=0)
+            kl.get_style_context().add_class("settings-k")
+            kl.set_size_request(150, -1)
+            vl = Gtk.Label(label=v, xalign=0, wrap=True)
+            vl.get_style_context().add_class("settings-v")
+            rb.pack_start(kl, False, False, 0)
+            rb.pack_start(vl, True, True, 0)
+            return rb
+
+        info.pack_start(row("نسخه", f"SimorghOS {VERSION}"), False, False, 0)
+        for k, getter in (("کرنل", self._kernel), ("پردازنده", self._cpu),
+                          ("حافظه", self._ram), ("میزان راه‌اندازی", self._uptime),
+                          ("گرافیک", self._gpu)):
+            try:
+                v = getter()
+            except Exception:
+                v = "—"
+            info.pack_start(row(k, v), False, False, 0)
+        b.pack_start(info, False, False, 0)
+        return b
+
+    # ── system info getters ────────────────────────────────────────────────
+    @staticmethod
+    def _kernel():
+        return open("/proc/sys/kernel/osrelease").read().strip()
+
+    @staticmethod
+    def _cpu():
+        for line in open("/proc/cpuinfo"):
+            if line.startswith("model name"):
+                return line.split(":", 1)[1].strip()
+        return "—"
+
+    @staticmethod
+    def _ram():
+        d = {}
+        for line in open("/proc/meminfo"):
+            k, v = line.split(":", 1)
+            d[k.strip()] = int(v.strip().split()[0])
+        gb = d.get("MemTotal", 0) / 1024 / 1024
+        return f"{gb:.1f} GB"
+
+    @staticmethod
+    def _uptime():
+        s = int(open("/proc/uptime").read().split()[0])
+        h, rem = divmod(s, 3600)
+        m, _ = divmod(rem, 60)
+        return f"{h} ساعت و {m} دقیقه"
+
+    @staticmethod
+    def _gpu():
+        import subprocess
+        try:
+            out = subprocess.run(["lspci"], capture_output=True, text=True).stdout
+            for line in out.splitlines():
+                if "VGA" in line or "3D" in line or "Display" in line:
+                    return line.split(":", 2)[-1].strip()
+        except Exception:
+            pass
+        return "—"
+
+
+def main():
+    Settings()
+    Gtk.main()
+
+
+if __name__ == "__main__":
+    main()
