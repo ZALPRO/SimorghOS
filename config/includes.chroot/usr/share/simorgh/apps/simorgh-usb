@@ -39,8 +39,8 @@ def drives():
             name, size, typ, disk = parts[0], int(parts[1]), parts[2], parts[3]
             if typ == "disk" and name.startswith("loop"):
                 continue
-            model = parts[5] if len(parts) > 5 else ""
-            mount = parts[6] if len(parts) > 6 else ""
+            model = parts[4] if len(parts) > 4 else ""
+            mount = parts[5] if len(parts) > 5 else ""
             if "USB" in model.upper() or " Kingston" in model or "SanDisk" in model:
                 out.append((f"/dev/{name}", f"{size / 1e9:.1f} GB", model, mount))
             elif typ == "disk" and disk and not name.startswith("loop") and not name.startswith("sr"):

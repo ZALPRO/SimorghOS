@@ -12,10 +12,11 @@ class Power:
         self.win = init("Power", 520, 420)
         self.win.set_resizable(False)
         header(self.win, "Power", "What would you like to do?", icon="system-shutdown")
-        self.win.set_titlebar(header(self.win, "Power", "What would you like to do?"))
+        outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.win.add(outer)
         grid = Gtk.Grid(column_spacing=12, row_spacing=12)
         grid.set_margin_top(20)
-        grid.set_margin_bottom(20)
+        grid.set_margin_bottom(8)
         grid.set_column_homogeneous(True)
         items = [
             ("system-lock-screen", "Lock", self.lock),
@@ -39,12 +40,11 @@ class Power:
             btn.connect("leave-notify-event", lambda b, _e: b.get_style_context().remove_class("power-hover"))
             btn.connect("clicked", lambda _b, f=cb: f())
             grid.attach(btn, i % 3, i // 3, 1, 1)
-        self.win.add(grid)
+        outer.pack_start(grid, True, True, 0)
         cancel = Gtk.Button(label="Cancel")
         cancel.connect("clicked", lambda _b: Gtk.main_quit())
         cancel.set_halign(Gtk.Align.CENTER)
         cancel.set_margin_bottom(14)
-        outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, child=grid)
         outer.pack_start(cancel, False, False, 0)
         self.win.show_all()
 

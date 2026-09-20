@@ -9,7 +9,7 @@ sys.path.insert(0, "/usr/share/simorgh")
 from gi.repository import Gtk, GLib  # noqa: E402
 from ui import card, header, init, label, run_cmd, pkexec  # noqa: E402
 
-BG_DIR = "/usr/share/backgrounds"
+BG_DIR = "/usr/share/backgrounds/simorgh"
 THEMES = [("dark", "Simorgh Dark"), ("lapis", "Lapis Blue"), ("light", "Porcelain Light")]
 ACCENTS = ["#5eead4", "#38bdf8", "#a78bfa", "#f472b6", "#f0c46a", "#4ade80"]
 
@@ -105,7 +105,7 @@ class Settings:
     def set_wallpaper(self, combo):
         f = combo.get_active_text()
         if f:
-            run_cmd(["hyprctl", "wallpaper", f"{BG_DIR}/{f},random"],
+            run_cmd(["simorgh", "wallpaper", f],
                     lambda ok, out: self.flash(f"Wallpaper: {f}"))
 
     def set_accent(self, c):
@@ -124,11 +124,21 @@ class Settings:
     def page_display(self):
         b = card()
         b.pack_start(label("Resolution", bold=True), False, False, 0)
-        res = sh(["xrandr"]).splitlines()
-        avail = [r.split()[0] for r in res if " connected" in r or "current" in r]
+        mons = sh(["hyprctl", "monitors"]).splitlines()
+        cur_res = ""
+        mon_name = "unknown"
+        for line in mons:
+            if "current position" in line or line.startswith("Monitor"):
+                mon_name = line.split(",")[0].split(":")[0].replace("Monitor", "").strip() or mon_name
+            if "current position" in line:
+                cur_res = line.split("current position: ")[-1].split()[0]
+        avail = [cur_res] if cur_res else []
+        avail += [r for r in ("2560x1440", "1920x1080", "1600x900", "1280x720")
+                  if r not in avail]
         self.res_combo = Gtk.ComboBoxText()
-        for r in (avail or ["1920x1080"]):
+        for r in avail:
             self.res_combo.append_text(r.replace("x", " × "))
+        self.res_combo.set_active(0)
         self.res_combo.connect("changed", self.set_res)
         b.pack_start(self.res_combo, False, False, 2)
 
@@ -152,13 +162,16 @@ class Settings:
 
     def set_res(self, combo):
         r = combo.get_active_text().replace(" × ", "x")
-        run_cmd(["xrandr", "-s", r], lambda ok, out: self.flash(f"Resolution {r}"))
+        run_cmd(["hyprctl", "keyword", f"monitor=,res={r}"],
+                lambda ok, out: self.flash(f"Resolution {r}"))
 
     def set_scale(self, v):
-        run_cmd(["hyprctl", "keyword", f"dense_monitor = {0 if v > 1.2 else 1}"])
+        run_cmd(["hyprctl", "keyword", f"general:scale = {v:g}"])
 
     def set_hz(self, combo):
-        run_cmd(["xrandr", "--output", "eDP-1", "--rate", combo.get_active_text().split()[0]])
+        hz = combo.get_active_text().split()[0]
+        run_cmd(["hyprctl", "keyword", f"monitor=,refresh_rate={hz}"],
+                lambda ok, out: self.flash(f"Refresh {hz} Hz"))
 
     # ── sound ─────────────────────────────────────────────────────────
     def page_sound(self):

@@ -173,12 +173,20 @@ class Welcome:
             run_cmd(["setxkbmap", l])
 
     def finish(self):
-        for b in self.apps_row.get_children():
-            if b.get_active():
-                run_cmd(["pkexec", "apt", "install", "-y", b.get_data("pkg")])
+        import subprocess
+        pkgs = [b.get_data("pkg") for b in self.apps_row.get_children()
+                if b.get_active()]
+        if pkgs:
+            # detached so installs finish even after this window closes
+            log = open("/tmp/simorgh-welcome-install.log", "a")
+            subprocess.Popen(["pkexec", "apt", "install", "-y"] + pkgs,
+                             stdout=log, stderr=subprocess.STDOUT,
+                             start_new_session=True)
+            self.next_b.set_sensitive(False)
+            self.progress.set_text("Finishing… optional packages install in the background")
         os.makedirs(os.path.expanduser("~/.config/simorgh"), exist_ok=True)
         open(DONE, "w").write("1")
-        Gtk.main_quit()
+        GLib.timeout_add(800, Gtk.main_quit)
 
 
 if __name__ == "__main__":

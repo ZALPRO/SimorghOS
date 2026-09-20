@@ -168,13 +168,11 @@ class Services:
             cls = "state-ok" if state == "active" else \
                 ("state-error" if state in ("failed", "activating") else "dim")
             box.pack_start(label(state, cls=cls), False, False, 0)
-            for tip, act, arg in (("Start", "start", state),
-                                  ("Stop", "stop", state),
-                                  ("Restart", "restart", state)):
+            for tip, act in (("Start", "start"), ("Stop", "stop"),
+                             ("Restart", "restart")):
                 b = Gtk.Button(label=tip)
-                b.set_sensitive((act != "stop" and state == "active") or
-                                (act == "stop" and state == "active") or
-                                (act == "restart" and state == "active"))
+                b.set_sensitive(act == "start" and state != "active"
+                                or act in ("stop", "restart") and state == "active")
                 b.connect("clicked", self.unit_action, name, act)
                 box.pack_start(b, False, False, 0)
             row.add(box)

@@ -96,7 +96,6 @@ class Notes:
         sw2.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         self.buf = Gtk.TextBuffer()
         self.buf.connect("changed", self.dirty)
-        self.txt = Gtk.TextBuffer()
         self.txt = Gtk.TextView(buffer=self.buf)
         self.txt.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
         self.txt.set_left_margin(10); self.txt.set_right_margin(10)
@@ -173,10 +172,12 @@ class Notes:
             text = open(p, encoding="utf-8").read()
         except OSError:
             text = ""
-        head = text.splitlines()[0] if text else ""
         title = self.meta.get(key, {}).get("title", os.path.basename(p)[:-3])
         self.title_e.set_text(title)
-        self.buf.set_text(text.lstrip("#").lstrip())
+        body = text
+        if body.startswith("# "):
+            body = body.split("\n", 1)[1] if "\n" in body else ""
+        self.buf.set_text(body)
         self.status.set_text(p)
 
     def flush(self):

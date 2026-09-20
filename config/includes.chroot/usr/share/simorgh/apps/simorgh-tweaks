@@ -58,9 +58,10 @@ class Tweaks:
         self.add_row(c, "Window animation scale amount", 5, 20, 1, None,
                      lambda v: f"animations:default = 1, {4 + int(v // 5)}, "
                                f"scale {1 - v / 100:.2f}")
-        chk3 = Gtk.CheckButton(label="Hide windows when focused (floating style)")
+        chk3 = Gtk.CheckButton(label="Natural touchpad scrolling")
+        chk3.set_active(True)
         chk3.connect("toggled", lambda s: self._kw(
-            "general:gaps_in = 0" if s.get_active() else "general:gaps_in = 4"))
+            f"input:touchpad:natural_scrolling = {'1' if s.get_active() else '0'}"))
         c.pack_start(chk3, False, False, 2)
         col.pack_start(c, False, False, 0)
 
