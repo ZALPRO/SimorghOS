@@ -1,20 +1,21 @@
-// سیمرغ‌اواس — نوار وضعیت Waybar
+// سیمرغ‌اواس — نوار وضعیت Waybar (آیکون‌های Font Awesome، بدون ایموجی)
 {
     "layer": "top",
     "position": "top",
-    "height": 36,
+    "height": 38,
     "spacing": 8,
-    "margin-top": 6,
-    "margin-left": 8,
-    "margin-right": 8,
+    "margin-top": 8,
+    "margin-left": 10,
+    "margin-right": 10,
 
     "modules-left": ["custom/logo", "hyprland/workspaces", "hyprland/window"],
     "modules-right": ["tray", "network", "bluetooth", "pulseaudio", "cpu", "memory", "custom/jdate", "clock"],
 
     "custom/logo": {
-        "format": "Simorgh",
+        "format": " Simorgh",
         "tooltip": false,
-        "on-click": "rofi -show drun"
+        "on-click": "rofi -show drun",
+        "on-right-click": "rofi -show run"
     },
 
     "hyprland/workspaces": {
@@ -36,37 +37,37 @@
     "tray": { "spacing": 10 },
 
     "network": {
-        "format-wifi": "📶",
-        "format-ethernet": "🌐",
-        "format-disconnected": "✖",
+        "format-wifi": "\uf1eb",
+        "format-ethernet": "\uf1ac",
+        "format-disconnected": "\uf6ac",
         "tooltip-format": "{essid} — {ipaddr}"
     },
 
     "bluetooth": {
-        "format": "🔷",
+        "format": "\uf294",
         "format-disabled": "",
         "tooltip-format": "{status}"
     },
 
     "pulseaudio": {
-        "format": "{icon} {volume}٪",
-        "format-muted": "🔇",
-        "format-icons": { "default": ["🔈", "🔉", ""] },
+        "format": "{icon} {volume}%",
+        "format-muted": "\uf6a9",
+        "format-icons": { "default": ["\uf027", "\uf028", "\uf028"] },
         "on-click": "pavucontrol"
     },
 
-    "cpu": { "format": "⚙ {usage}٪", "interval": 5 },
-    "memory": { "format": "🧮 {percentage}٪", "interval": 5 },
+    "cpu": { "format": "\uf2db {usage}%", "interval": 5 },
+    "memory": { "format": "\uf538 {percentage}%", "interval": 5 },
 
     "custom/jdate": {
-        "format": "🗓 {}",
+        "format": "\uf073 {}",
         "exec": "/usr/share/simorgh/bin/simorgh-jdate --short",
         "interval": 60,
         "tooltip-format": "تقویم جلالی"
     },
 
     "clock": {
-        "format": "🕐 {:%H:%M}",
+        "format": "\uf017 {:%H:%M}",
         "tooltip-format": "{:%A %d %B %Y}\n{calendar}",
         "calendar": { "mode": "month" }
     }

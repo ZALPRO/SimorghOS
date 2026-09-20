@@ -4,7 +4,7 @@
 * {
     border: none;
     border-radius: 0;
-    font-family: "Vazirmatn", "Fira Code", "Noto Color Emoji";
+    font-family: "Vazirmatn", "Font Awesome 5 Free", "Fira Code";
     font-size: 13px;
     min-height: 24px;
     transition: background-color .25s ease;
@@ -93,3 +93,8 @@ tooltip label { color: @text; }
 }
 *:disabled { color: alpha(@subtext, 0.45); background: transparent; }
 *:focus { outline: 2px solid alpha(@accent, 0.6); outline-offset: 1px; }
+
+/* ── Font Awesome solid glyphs (weight 900) for status icons ── */
+#network, #bluetooth, #pulseaudio, #cpu, #memory, #custom-jdate, #clock {
+    font-weight: 900;
+}

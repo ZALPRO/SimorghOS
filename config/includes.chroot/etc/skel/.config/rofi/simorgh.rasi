@@ -13,31 +13,38 @@
 window {
     transparency: "real";
     background-color: @bg-t;
-    border: 1px solid @accent;
-    border-radius: 20px;
+    border: 1px solid alpha(@accent, 0.55);
+    border-radius: 22px;
     location: center;
-    width: 46%;
-    min-height: 0;
-    padding: 18px;
+    y-offset: -6%;
+    width: 48%;
+    padding: 22px;
     children: [ entry, listview, mode-switcher ];
 }
 
 entry {
-    background-color: transparent;
+    background-color: alpha(@surface, 0.7);
     text-color: @foreground;
     font: "Vazirmatn 18";
-    padding: 10px 6px;
+    padding: 12px 18px;
+    border-radius: 14px;
     expand: true;
     horizontal-align: 0.5;
-    placeholder: "Search apps, run commands…  /  جست‌وجو…";
-    placeholder-color: @accent;
+    placeholder: "جست‌وجو و اجرای برنامه…";
+    placeholder-color: alpha(@accent, 0.8);
+}
+entry:hover {
+    background-color: alpha(@surface, 0.9);
+}
+entry:focus {
+    border: 1px solid alpha(@accent, 0.8);
 }
 
 listview {
     columns: 1;
     lines: 7;
     spacing: 6px;
-    margin-top: 12px;
+    margin-top: 14px;
     background: transparent;
 }
 
@@ -45,35 +52,60 @@ element {
     background-color: transparent;
     text-color: @foreground;
     border-radius: 14px;
-    padding: 10px 14px;
+    padding: 11px 16px;
     orientation: horizontal;
 }
-
+element normal.normal {
+    background-color: transparent;
+    text-color: @text;
+}
+element alternate.normal {
+    background-color: alpha(@surface, 0.35);
+    text-color: @text;
+}
+element normal.urgent {
+    background-color: alpha(@rose, 0.25);
+    text-color: @rose;
+}
+element hover {
+    background-color: alpha(@accent, 0.16);
+    text-color: @accent;
+}
 element selected {
     background-color: @accent;
     text-color: @bg;
 }
+element selected.active {
+    background-color: @accent2;
+    text-color: @bg;
+}
 
-element-icon { size: 28px; margin: 0 10px 0 0; }
+element-icon {
+    size: 30px;
+    margin: 0 12px 0 0;
+}
 
-mode-switcher { spacing: 6px; margin-top: 10px; }
+mode-switcher {
+    spacing: 6px;
+    margin-top: 12px;
+}
 button {
-    background-color: @background-alt;
+    background-color: alpha(@surface, 0.6);
     text-color: @foreground;
     border-radius: 12px;
-    padding: 6px 16px;
+    padding: 6px 18px;
 }
-button selected { background-color: @accent; text-color: @bg; }
+button hover {
+    background-color: alpha(@accent, 0.25);
+    text-color: @accent;
+}
+button selected {
+    background-color: @accent;
+    text-color: @bg;
+}
 
 error-message {
     background-color: @urgent;
     text-color: @bg;
     border-radius: 12px;
 }
-
-element normal.normal { background-color: transparent; text-color: @text; }
-element normal.urgent { background-color: @rose; text-color: @bg; }
-element selected.active { background-color: @accent2; text-color: @bg; }
-element alternate.normal { background-color: alpha(@surface, 0.5); text-color: @text; }
-button hover { background-color: alpha(@accent, 0.25); text-color: @accent; }
-entry hover { border-color: @accent; }
