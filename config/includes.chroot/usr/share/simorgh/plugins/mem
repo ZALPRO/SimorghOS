@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# SimorghOS plugin — memory & disk summary
+set -euo pipefail
+free -h | awk '/Mem/{print "RAM  "$2" total, "$7" available"}'
+sw=$(swapon --show --noheadings 2>/dev/null | head -1 | awk '{print $4}')
+[[ -n "${sw:-}" ]] && echo "Swap $sw"
+df -h / | awk 'NR==2{print "Disk "$4" free of "$2" on /"}'

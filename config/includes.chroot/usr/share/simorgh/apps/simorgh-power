@@ -1,0 +1,74 @@
+#!/usr/bin/env python3
+"""SimorghOS — Power: animated power menu (lock, sleep, suspend, restart, shutdown)."""
+import sys
+
+sys.path.insert(0, "/usr/share/simorgh")
+from gi.repository import Gtk, Gdk, GLib  # noqa: E402
+from ui import header, init, label, run_cmd  # noqa: E402
+
+
+class Power:
+    def __init__(self):
+        self.win = init("Power", 520, 420)
+        self.win.set_resizable(False)
+        header(self.win, "Power", "What would you like to do?", icon="system-shutdown")
+        self.win.set_titlebar(header(self.win, "Power", "What would you like to do?"))
+        grid = Gtk.Grid(column_spacing=12, row_spacing=12)
+        grid.set_margin_top(20)
+        grid.set_margin_bottom(20)
+        grid.set_column_homogeneous(True)
+        items = [
+            ("system-lock-screen", "Lock", self.lock),
+            ("weather-clear-night", "Sleep", self.sleep),
+            ("player-stop", "Suspend", self.suspend),
+            ("view-refresh", "Restart", self.restart),
+            ("system-shutdown", "Shut Down", self.shutdown),
+        ]
+        for i, (icon, name, cb) in enumerate(items):
+            btn = Gtk.Button()
+            btn.get_style_context().add_class("power-btn")
+            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+            box.set_margin_top(14)
+            box.set_margin_bottom(14)
+            img = Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.DIALOG)
+            img.set_halign(Gtk.Align.CENTER)
+            box.pack_start(img, False, False, 0)
+            box.pack_start(label(name), False, False, 0)
+            btn.add(box)
+            btn.connect("enter-notify-event", lambda b, _e: b.get_style_context().add_class("power-hover"))
+            btn.connect("leave-notify-event", lambda b, _e: b.get_style_context().remove_class("power-hover"))
+            btn.connect("clicked", lambda _b, f=cb: f())
+            grid.attach(btn, i % 3, i // 3, 1, 1)
+        self.win.add(grid)
+        cancel = Gtk.Button(label="Cancel")
+        cancel.connect("clicked", lambda _b: Gtk.main_quit())
+        cancel.set_halign(Gtk.Align.CENTER)
+        cancel.set_margin_bottom(14)
+        outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, child=grid)
+        outer.pack_start(cancel, False, False, 0)
+        self.win.show_all()
+
+    def _do(self, argv, then_quit=True):
+        for c in self.win.get_children():
+            c.set_sensitive(False)
+        run_cmd(argv, lambda ok, out: GLib.timeout_add(400, Gtk.main_quit) if then_quit else None)
+
+    def lock(self, _b):
+        self._do(["hyprctl", "dispatch", "lock"])
+
+    def sleep(self, _b):
+        self._do(["systemctl", "suspend"])
+
+    def suspend(self, _b):
+        self._do(["systemctl", "suspend"])
+
+    def restart(self, _b):
+        self._do(["pkexec", "systemctl", "reboot"])
+
+    def shutdown(self, _b):
+        self._do(["pkexec", "systemctl", "poweroff"])
+
+
+if __name__ == "__main__":
+    Power()
+    Gtk.main()

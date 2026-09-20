@@ -137,7 +137,7 @@ class Sec:
         elif self.warnings:
             txt, cls = f"! Warning — {self.warnings} item(s) need attention", "state-warn"
         else:
-            txt, cls = "✓ Secure", "state-ok"
+            txt, cls = "Secure", "state-ok"
         self.banner_text.set_text(txt)
         self.banner_text.get_style_context().add_class(cls)
         return False

@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# SimorghOS plugin — quick volume
+set -euo pipefail
+case "${1:-show}" in
+  up)   pactl set-sink-volume @DEFAULT_SINK@ +5%; echo "volume: $(pactl get-sink-volume @DEFAULT_SINK@)" ;;
+  down) pactl set-sink-volume @DEFAULT_SINK@ -5%; echo "volume: $(pactl get-sink-volume @DEFAULT_SINK@)" ;;
+  mute) pactl set-sink-mute @DEFAULT_SINK@ toggle; echo "muted: $(pactl get-sink-mute @DEFAULT_SINK@)" ;;
+  *)    pactl get-sink-volume @DEFAULT_SINK@ ;;
+esac

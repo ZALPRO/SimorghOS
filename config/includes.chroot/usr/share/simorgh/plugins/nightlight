@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# SimorghOS plugin — night light (gammastep)
+set -euo pipefail
+state() { pgrep -x gammastep >/dev/null && echo "on" || echo "off"; }
+case "${1:-toggle}" in
+  on)     pkill -x gammastep 2>/dev/null || true; (gammastep -l 3600:4200 -R &) >/dev/null; echo "night light: on" ;;
+  off)    pkill -x gammastep 2>/dev/null || true; echo "night light: off" ;;
+  toggle) if [ "$(state)" = on ]; then "$0" off; else "$0" on; fi ;;
+  *)      echo "night light is $(state) — usage: simorgh nightlight [on|off|toggle]" ;;
+esac

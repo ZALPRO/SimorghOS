@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=
+Name[fa]=خوش‌آمد
+Welcome
+Comment=First-boot setup
+Exec=simorgh-welcome
+Icon=welcome
+Terminal=false
+Categories=System;Simorgh;
+Keywords=simorgh;

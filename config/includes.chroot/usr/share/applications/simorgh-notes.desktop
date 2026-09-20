@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=
+Name[fa]=یادداشت‌ها
+Notes
+Comment=Markdown notes
+Exec=simorgh-notes
+Icon=notes
+Terminal=false
+Categories=System;Simorgh;
+Keywords=simorgh;

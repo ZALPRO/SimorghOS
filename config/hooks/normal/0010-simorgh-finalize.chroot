@@ -57,6 +57,14 @@ APT::Periodic::AutocleanInterval "7";
 EOF
 fi
 
+echo "Simorgh: default user (branding)…"
+if ! id user >/dev/null 2>&1; then
+    useradd -m -s /bin/bash -c "Simorgh OS" \
+        -G audio,cdrom,dip,netdev,video,sudo user
+    echo "user:user" | chpasswd
+fi
+usermod -c "Simorgh OS" user 2>/dev/null || true
+
 echo "Simorgh: identity (/etc/os-release)…"
 . /etc/os-release
 SIMORGH_CODENAME="${VERSION_CODENAME:-trixie}"

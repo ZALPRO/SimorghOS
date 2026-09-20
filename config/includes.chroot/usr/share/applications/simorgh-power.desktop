@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=
+Name[fa]=برق
+Power
+Comment=Power menu
+Exec=simorgh-power
+Icon=power
+Terminal=false
+Categories=System;Simorgh;
+Keywords=simorgh;

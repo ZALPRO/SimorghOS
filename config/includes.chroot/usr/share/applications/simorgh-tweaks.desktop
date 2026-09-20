@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=
+Name[fa]=تنظیم ظاهری
+Tweaks
+Comment=Live Hyprland appearance tweaks
+Exec=simorgh-tweaks
+Icon=tweaks
+Terminal=false
+Categories=System;Simorgh;
+Keywords=simorgh;

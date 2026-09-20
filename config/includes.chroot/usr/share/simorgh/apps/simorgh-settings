@@ -1,313 +1,330 @@
 #!/usr/bin/env python3
-"""simorgh-settings — SimorghOS unified settings.
-
-Sections: Appearance (theme + wallpaper), Language, Calendar,
-Accessibility, and System info. Drives the existing simorgh-* tooling and
-the shared ~/.config/simorgh/prefs file so every change is consistent with
-the CLI and the individual apps.
-"""
+"""SimorghOS — Settings: unified hub for appearance, display, sound,
+network, keyboard, time, and about."""
 import os
+import subprocess
 import sys
 
 sys.path.insert(0, "/usr/share/simorgh")
-import ui  # noqa: E402
-
 from gi.repository import Gtk, GLib  # noqa: E402
+from ui import card, header, init, label, run_cmd, pkexec  # noqa: E402
 
-PREFS = os.path.expanduser("~/.config/simorgh/prefs")
-WALLDIR = "/usr/share/backgrounds/simorgh"
-VERSION = "0.0.1"
-
-SECTIONS = [
-    ("appearance", "Appearance", "applications-graphics"),
-    ("language", "Language", "input-keyboard"),
-    ("calendar", "Calendar", "x-office-calendar"),
-    ("accessibility", "Accessibility", "accessibility"),
-    ("system", "System", "computer"),
-]
+BG_DIR = "/usr/share/backgrounds"
+THEMES = [("dark", "Simorgh Dark"), ("lapis", "Lapis Blue"), ("light", "Porcelain Light")]
+ACCENTS = ["#5eead4", "#38bdf8", "#a78bfa", "#f472b6", "#f0c46a", "#4ade80"]
 
 
-def read_prefs():
-    d = {}
-    if os.path.exists(PREFS):
-        for line in open(PREFS):
-            line = line.strip()
-            if "=" in line and not line.startswith("#"):
-                k, v = line.split("=", 1)
-                d[k.strip()] = v.strip()
-    return d
-
-
-def write_prefs(d):
-    os.makedirs(os.path.dirname(PREFS), exist_ok=True)
-    with open(PREFS, "w") as f:
-        for k, v in d.items():
-            f.write(f"{k}={v}\n")
+def sh(argv):
+    try:
+        return subprocess.run(argv, capture_output=True, text=True, timeout=30).stdout.strip()
+    except Exception:  # noqa: BLE001
+        return ""
 
 
 class Settings:
     def __init__(self):
-        self.prefs = read_prefs()
-        self.app = ui.init("Settings", 900, 620)
-        self.app.get_style_context().add_class("simorgh")
-        hb = ui.header(self.app, "Settings", "سیمرغ‌اواس 0.0.1", "preferences-system")
-        self._build(hb)
-        self.app.show_all()
-        self._show_section("appearance")
+        self.win = init("Settings", 940, 660)
+        header(self.win, "Settings", icon="settings")
+        body = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        self.win.add(body)
 
-    def _build(self, hb):
-        root = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
-        self.app.add(root)
-
-        # left: section list
-        side = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
-        side.set_size_request(230, -1)
-        side.get_style_context().add_class("settings-side")
-        for key, fa, icon in SECTIONS:
-            btn = Gtk.Button()
-            row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
-            img = Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.MENU)
-            row.pack_start(img, False, False, 0)
-            row.pack_start(Gtk.Label(label=fa, xalign=0), False, False, 0)
-            btn.add(row)
-            btn.set_relief(Gtk.ReliefStyle.NONE)
-            btn.get_style_context().add_class("settings-item")
-            btn.set_name(key)
-            btn.connect("clicked", lambda w, k=key: self._show_section(k))
-            side.pack_start(btn, False, False, 0)
-            self.side_btns = getattr(self, "side_btns", {})
-            self.side_btns[key] = btn
-        root.pack_start(side, False, False, 0)
-
-        # right: content stack
+        side = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        side.set_size_request(220, -1)
+        side.get_style_context().add_class("simorgh-sidebar")
         self.stack = Gtk.Stack()
-        self.stack.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
-        self.stack.set_transition_duration(180)
-        for key, fa, icon in SECTIONS:
-            page = self._page(key)
-            self.stack.add_named(page, key)
-        root.pack_start(self.stack, True, True, 0)
+        self.stack.set_transition_type(Gtk.StackTransitionType.SLIDE_LEFT_RIGHT)
+        self.stack.set_transition_duration(200)
+        pages = [
+            ("format-shape-appear", "Appearance", self.page_appearance),
+            ("video-display", "Display", self.page_display),
+            ("audio-speakers", "Sound", self.page_sound),
+            ("network-wireless", "Network", self.page_network),
+            ("input-keyboard", "Keyboard", self.page_keyboard),
+            ("clock", "Date & Time", self.page_time),
+            ("help-about", "About", self.page_about),
+        ]
+        for i, (icon, name, builder) in enumerate(pages):
+            b = Gtk.Button(label=f"  {name}")
+            b.set_relief(Gtk.ReliefStyle.NONE)
+            b.set_alignment(-1, 0)
+            b.set_image(Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.MENU))
+            b.set_always_show_image(True)
+            b.connect("clicked", lambda _b, i=i: self.stack.set_visible_child_name(f"p{i}"))
+            side.pack_start(b, False, False, 0)
+            self.stack.add_named(builder(), f"p{i}")
+        side.pack_start(Gtk.Separator(), False, False, 8)
+        body.pack_start(side, False, False, 0)
+        body.pack_start(self.stack, True, True, 0)
+        self.win.show_all()
 
-    def _show_section(self, key):
-        self.stack.set_visible_child_name(key)
-        for k, b in self.side_btns.items():
-            b.get_style_context().remove_class("settings-active")
-            if k == key:
-                b.get_style_context().add_class("settings-active")
+    # ── appearance ─────────────────────────────────────────────────────
+    def page_appearance(self):
+        b = card()
+        b.pack_start(label("Color theme", bold=True), False, False, 0)
+        self.theme_combo = Gtk.ComboBoxText()
+        for val, name in THEMES:
+            self.theme_combo.append_text(name)
+        cur = sh(["simorgh-set-theme", "current"]) or "dark"
+        self.theme_combo.set_active(max(0, [t[0] for t in THEMES].index(cur)))
+        self.theme_combo.connect("changed", self.set_theme)
+        b.pack_start(self.theme_combo, False, False, 2)
 
-    # ── helpers ────────────────────────────────────────────────────────────
-    def _page(self, key):
-        p = {
-            "appearance": self._appearance,
-            "language": self._language,
-            "calendar": self._calendar,
-            "accessibility": self._accessibility,
-            "system": self._system,
-        }[key]()
-        p.set_margin_start(18)
-        p.set_margin_end(18)
-        p.set_margin_top(14)
-        p.set_margin_bottom(14)
-        return p
+        b.pack_start(Gtk.Separator(), False, False, 8)
+        b.pack_start(label("Wallpaper", bold=True), False, False, 0)
+        self.wall_combo = Gtk.ComboBoxText()
+        for f in sorted(os.listdir(BG_DIR)) if os.path.isdir(BG_DIR) else []:
+            self.wall_combo.append_text(f)
+        self.wall_combo.set_active(0)
+        self.wall_combo.connect("changed", self.set_wallpaper)
+        b.pack_start(self.wall_combo, False, False, 2)
 
-    def _h(self, text):
-        l = Gtk.Label(label=text, xalign=0)
-        l.get_style_context().add_class("settings-h")
-        return l
+        b.pack_start(Gtk.Separator(), False, False, 8)
+        b.pack_start(label("Accent color", bold=True), False, False, 0)
+        sw = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        for c in ACCENTS:
+            btn = Gtk.Button(label="●")
+            btn.get_style_context().add_class("swatch")
+            btn.set_tooltip_text(c)
+            GLib.idle_add(self._swatch_bg, btn, c)
+            btn.connect("clicked", lambda _b, cc=c: self.set_accent(cc))
+            sw.pack_start(btn, False, False, 0)
+        b.pack_start(sw, False, False, 0)
+        self.ap_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        b.pack_start(self.ap_box, False, False, 4)
+        return b
 
-    def _radio_row(self, group, label, active, on_toggled):
-        r = Gtk.RadioButton.new_with_label_from_widget(None if group is None else group, label)
-        r.set_active(bool(active))
-        if on_toggled:
-            r.connect("toggled", on_toggled)
-        return r
+    def _swatch_bg(self, btn, c):
+        btn.get_style_context().set_color(Gdk.RGBA(*_hex(c)))
+        return False
 
-    def _toggle_row(self, label, key, on=True):
-        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
-        row.get_style_context().add_class("settings-row")
-        row.pack_start(Gtk.Label(label=label, xalign=0), True, True, 0)
+    def set_theme(self, combo):
+        val = THEMES[combo.get_active()][0]
+        run_cmd(["simorgh-set-theme", val], lambda ok, out:
+                self.flash(f"Theme set to {val}" if ok else out))
+
+    def set_wallpaper(self, combo):
+        f = combo.get_active_text()
+        if f:
+            run_cmd(["hyprctl", "wallpaper", f"{BG_DIR}/{f},random"],
+                    lambda ok, out: self.flash(f"Wallpaper: {f}"))
+
+    def set_accent(self, c):
+        run_cmd(["hyprctl", "keyword", f"general:accent = {c}"])
+        self.flash(f"Accent {c} applied (live)")
+
+    def flash(self, msg):
+        self.msg.set_text(msg)
+        self.msg.get_style_context().add_class("state-ok")
+        for c in self.ap_box.get_children() if hasattr(self, "ap_box") else []:
+            self.ap_box.remove(c)
+        if hasattr(self, "ap_box"):
+            self.ap_box.show_all()
+
+    # ── display ────────────────────────────────────────────────────────
+    def page_display(self):
+        b = card()
+        b.pack_start(label("Resolution", bold=True), False, False, 0)
+        res = sh(["xrandr"]).splitlines()
+        avail = [r.split()[0] for r in res if " connected" in r or "current" in r]
+        self.res_combo = Gtk.ComboBoxText()
+        for r in (avail or ["1920x1080"]):
+            self.res_combo.append_text(r.replace("x", " × "))
+        self.res_combo.connect("changed", self.set_res)
+        b.pack_start(self.res_combo, False, False, 2)
+
+        b.pack_start(Gtk.Separator(), False, False, 8)
+        b.pack_start(label("Scale (fractional Hyprland)", bold=True), False, False, 0)
+        self.scale_adj = Gtk.Adjustment(1.0, 0.5, 3.0, 0.25, 0.25, 0.25)
+        s = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0.5, 3.0, 0.25)
+        s.set_adjustment(self.scale_adj)
+        s.set_digits(2)
+        s.connect("value-changed", lambda a: self.set_scale(a.get_value()))
+        b.pack_start(s, False, False, 2)
+
+        b.pack_start(Gtk.Separator(), False, False, 8)
+        b.pack_start(label("Refresh rate", bold=True), False, False, 0)
+        self.hz_combo = Gtk.ComboBoxText()
+        for h in ("60", "120", "144"):
+            self.hz_combo.append_text(f"{h} Hz")
+        self.hz_combo.connect("changed", self.set_hz)
+        b.pack_start(self.hz_combo, False, False, 2)
+        return b
+
+    def set_res(self, combo):
+        r = combo.get_active_text().replace(" × ", "x")
+        run_cmd(["xrandr", "-s", r], lambda ok, out: self.flash(f"Resolution {r}"))
+
+    def set_scale(self, v):
+        run_cmd(["hyprctl", "keyword", f"dense_monitor = {0 if v > 1.2 else 1}"])
+
+    def set_hz(self, combo):
+        run_cmd(["xrandr", "--output", "eDP-1", "--rate", combo.get_active_text().split()[0]])
+
+    # ── sound ─────────────────────────────────────────────────────────
+    def page_sound(self):
+        b = card()
+        b.pack_start(label("Master volume", bold=True), False, False, 0)
+        self.vol = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 100, 1)
+        cur = sh(["pactl", "get-sink-volume", "@DEFAULT_SINK@"])
+        try:
+            self.vol.set_value(int(cur.split("%")[0]))
+        except Exception:  # noqa: BLE001
+            self.vol.set_value(60)
+        self.vol.connect("value-changed", self.set_vol)
+        b.pack_start(self.vol, False, False, 2)
+
+        b.pack_start(label("Output device", bold=True), False, False, 0)
+        out = sh(["pactl", "list", "short", "sinks"]).splitlines()
+        self.sink_combo = Gtk.ComboBoxText()
+        for i, line in enumerate(out or ["default"]):
+            self.sink_combo.append_text(line.split("\t")[1] if "\t" in line else f"Sink {i}")
+        self.sink_combo.connect("changed", self.set_sink)
+        b.pack_start(self.sink_combo, False, False, 2)
+
+        b.pack_start(label("Mute", bold=True), False, False, 0)
         sw = Gtk.Switch()
-        sw.set_active(bool(self.prefs.get(key, "1" if on else "0")) in ("1", "true", "on"))
-        sw.connect("notify::active", lambda s, k=key: self._set_pref(k, "1" if s.get_active() else "0"))
-        row.pack_end(sw, False, False, 0)
-        return row
-
-    def _set_pref(self, key, val, apply=None):
-        self.prefs[key] = val
-        write_prefs(self.prefs)
-        if apply:
-            try:
-                apply(val)
-            except Exception:
-                pass
-
-    def _run(self, argv):
-        ui.run_cmd(argv)
-
-    # ── pages ──────────────────────────────────────────────────────────────
-    def _appearance(self):
-        b = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
-        b.pack_start(self._h("تم"), False, False, 0)
-        themes = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
-        cur = self.prefs.get("theme", "dark")
-        for name, fa in (("dark", "تاریک (شبِ فیروزه)"), ("lapis", "لاجوردی"), ("light", "روشن")):
-            r = self._radio_row(None if name == "dark" else themes.get_children()[0] if themes.get_children() else None,
-                                fa, cur == name, None)
-            r.set_name(name)
-            r.connect("toggled", lambda w, n=name: w.get_active() and self._run(["simorgh-set-theme", n]))
-            themes.pack_start(r, False, False, 0)
-        b.pack_start(themes, False, False, 0)
-
-        b.pack_start(self._h("تصویر پس‌زمینه"), False, False, 6)
-        wall = Gtk.FlowBox()
-        wall.set_selection_mode(Gtk.SelectionMode.SINGLE)
-        wall.set_min_children_per_line(3)
-        wall.set_max_children_per_line(3)
-        wall.set_column_spacing(10)
-        wall.set_row_spacing(10)
-        cur_wall = self.prefs.get("wallpaper", "wallpaper-simorgh-dark.png")
-        try:
-            for f in sorted(os.listdir(WALLDIR)):
-                if not f.lower().endswith((".png", ".jpg")):
-                    continue
-                ev = Gtk.EventBox()
-                ev.set_size_request(150, 84)
-                ev.get_style_context().add_class("wall-thumb")
-                pic = Gtk.Image.new_from_file(os.path.join(WALLDIR, f))
-                pic.set_pixel_size(150)
-                ev.add(pic)
-                ev.set_tooltip_text(f)
-                ev.connect("button-press-event", lambda w, fn=f: self._set_wall(fn))
-                if fn == cur_wall:
-                    ev.get_style_context().add_class("wall-active")
-                wall.add(ev)
-        except Exception:
-            pass
-        b.pack_start(wall, True, True, 0)
+        sw.connect("state-set", self.set_mute)
+        b.pack_start(sw, False, False, 0)
         return b
 
-    def _set_wall(self, fn):
-        self._set_pref("wallpaper", fn,
-                       apply=lambda v: self._run(["simorgh", "wallpaper", v]))
-        for c in self.app.get_children():
-            pass
+    def set_vol(self, s):
+        run_cmd(["pactl", "set-sink-volume", "@DEFAULT_SINK@", f"{int(s.get_value())}%"])
 
-    def _language(self):
-        b = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-        b.pack_start(self._h("زبان سیستم"), False, False, 0)
-        langs = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
-        cur = self.prefs.get("lang", "fa")
-        for code, fa in (("fa", "فارسی"), ("en", "English")):
-            r = self._radio_row(None if code == "fa" else langs.get_children()[0] if langs.get_children() else None,
-                                fa, cur == code, None)
-            r.connect("toggled", lambda w, c=code: w.get_active() and self._set_pref("lang", c,
-                                                                                  apply=lambda v: self._run(["simorgh-lang", v])))
-            langs.pack_start(r, False, False, 0)
-        b.pack_start(langs, False, False, 0)
-        note = Gtk.Label(label="تغییر زبان برای نشست‌های جدید اعمال می‌شود (خروج و ورود مجدد).",
-                         xalign=0, wrap=True)
-        note.get_style_context().add_class("subtitle")
-        b.pack_start(note, False, False, 6)
+    def set_sink(self, combo):
+        out = sh(["pactl", "list", "short", "sinks"]).splitlines()
+        if 0 <= combo.get_active() < len(out):
+            run_cmd(["pactl", "set-default-sink", out[combo.get_active()].split("\t")[0]])
+
+    def set_mute(self, sw):
+        run_cmd(["pactl", "set-sink-mute", "@DEFAULT_SINK@", "1" if sw.get_active() else "0"])
+        return True
+
+    # ── network ────────────────────────────────────────────────────────
+    def page_network(self):
+        b = card()
+        dev = sh(["nmcli", "-t", "-f", "TYPE,DEVICE,STATE", "device"]).splitlines()
+        for line in dev:
+            parts = line.split(":")
+            if len(parts) >= 3:
+                b.pack_start(label(f"{parts[0]} · {parts[1]} — {parts[2]}", cls="dim"),
+                             False, False, 0)
+        b.pack_start(Gtk.Separator(), False, False, 8)
+        b.pack_start(label("Wi-Fi networks", bold=True), False, False, 0)
+        self.wifi_list = Gtk.ScrolledWindow()
+        self.wifi_list.set_min_content_height(160)
+        self.wifi_list.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        lst = Gtk.ListBox()
+        lst.set_selection_mode(Gtk.SelectionMode.NONE)
+        nets = sh(["nmcli", "-t", "-f", "SSID,SIGNAL", "-t", "dev", "wifi"]).splitlines()
+        for n in nets[:12]:
+            ssid, sig = (n.split(":") + ["?"])[:2]
+            row = Gtk.ListBoxRow()
+            row.add(Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8,
+                            child=Gtk.Label(label=f"{ssid}   {sig}%")))
+            row.get_child().set_margin_start(10); row.get_child().set_margin_top(6)
+            row.get_child().set_margin_bottom(6)
+            btn = Gtk.Button(label="Connect")
+            btn.set_halign(Gtk.Align.END)
+            btn.connect("clicked", lambda _b, s=ssid: self.connect_wifi(s))
+            row.add(btn)
+            lst.add(row)
+        self.wifi_list.add(lst)
+        b.pack_start(self.wifi_list, False, False, 0)
         return b
 
-    def _calendar(self):
-        b = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-        b.pack_start(self._h("تقویم پیش‌فرض"), False, False, 0)
-        cal = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
-        cur = self.prefs.get("calendar", "jalali")
-        for code, fa in (("jalali", "جلالی (شمسی)"), ("gregorian", "میلادی"), ("both", "هر دو")):
-            r = self._radio_row(None if code == "jalali" else cal.get_children()[0] if cal.get_children() else None,
-                                fa, cur == code, None)
-            r.connect("toggled", lambda w, c=code: w.get_active() and self._set_pref("calendar", c))
-            cal.pack_start(r, False, False, 0)
-        b.pack_start(cal, False, False, 0)
+    def connect_wifi(self, ssid):
+        d = Gtk.Dialog(title=f"Connect to {ssid}", transient_for=self.win)
+        d.add_button("Cancel", Gtk.ResponseType.CANCEL)
+        d.add_button("Connect", Gtk.ResponseType.OK)
+        e = Gtk.Entry()
+        e.set_visibility(False)
+        e.set_placeholder_text("Password")
+        d.get_content_area().pack_start(e, True, True, 6)
+        d.show_all()
+        if d.run() == Gtk.ResponseType.OK:
+            pkexec(f"nmcli dev wifi connect '{ssid}' password '{e.get_text()}'",
+                   lambda ok, out: self.flash("Connected" if ok else out))
+        d.destroy()
+
+    # ── keyboard ───────────────────────────────────────────────────────
+    def page_keyboard(self):
+        b = card()
+        b.pack_start(label("Layout", bold=True), False, False, 0)
+        lay = sh(["setxkbmap", "-query"])
+        cur = "us"
+        for line in lay.splitlines():
+            if "layout" in line:
+                cur = line.split("=")[1].strip() or "us"
+        self.lay_combo = Gtk.ComboBoxText()
+        for l in ("us", "ru", "fa", "ir", "de", "tr"):
+            self.lay_combo.append_text(l)
+        self.lay_combo.set_active(max(0, [l for l in ("us", "ru", "fa", "ir", "de", "tr")].index(cur)))
+        self.lay_combo.connect("changed", self.set_layout)
+        b.pack_start(self.lay_combo, False, False, 2)
+        b.pack_start(Gtk.Separator(), False, False, 8)
+        b.pack_start(label("Num Lock", bold=True), False, False, 0)
+        sw = Gtk.Switch()
+        sw.set_active(True)
+        sw.connect("state-set", lambda s: (
+            run_cmd(["xset", "numlock", "on" if s.get_active() else "off"]), True)[1])
+        b.pack_start(sw, False, False, 0)
         return b
 
-    def _accessibility(self):
-        b = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-        b.pack_start(self._h("دسترسی‌پذیری"), False, False, 0)
-        b.pack_start(self._toggle_row("کاهش حرکت", "a11y_reduce_motion"), False, False, 0)
-        b.pack_start(self._toggle_row("فیلتر رنگ (گرم)", "a11y_color_filter"), False, False, 0)
-        note = Gtk.Label(label="تغییرات بلافاصله و بدون نیاز به ورود مجدد اعمال می‌شوند.",
-                         xalign=0, wrap=True)
-        note.get_style_context().add_class("subtitle")
-        b.pack_start(note, False, False, 6)
+    def set_layout(self, combo):
+        run_cmd(["setxkbmap", combo.get_active_text()],
+                lambda ok, out: self.flash(f"Layout {combo.get_active_text()}"))
+
+    # ── time ───────────────────────────────────────────────────────────
+    def page_time(self):
+        b = card()
+        b.pack_start(label("Time zone", bold=True), False, False, 0)
+        z = sh(["timedatectl", "list-timezones"]).splitlines()
+        self.tz_combo = Gtk.ComboBoxText()
+        for t in z:
+            self.tz_combo.append_text(t)
+        cur = sh(["timedatectl"]).split("Time zone: ")[-1].strip().splitlines()[0] if z else "Asia/Tehran"
+        self.tz_combo.set_active(max(0, z.index(cur) if cur in z else 0))
+        self.tz_combo.connect("changed", self.set_tz)
+        b.pack_start(self.tz_combo, False, False, 2)
+        b.pack_start(Gtk.Separator(), False, False, 8)
+        b.pack_start(label("NTP (network clock)", bold=True), False, False, 0)
+        sw = Gtk.Switch()
+        sw.set_active("yes" in sh(["timedatectl"]).lower())
+        sw.connect("state-set", self.set_ntp)
+        b.pack_start(sw, False, False, 0)
         return b
 
-    def _system(self):
-        b = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        b.pack_start(self._h("درباره سیمرغ‌اواس"), False, False, 0)
-        info = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        info.get_style_context().add_class("simorgh-card")
+    def set_tz(self, combo):
+        pkexec(f"timedatectl set-timezone {combo.get_active_text()}",
+               lambda ok, out: self.flash(f"Time zone {combo.get_active_text()}"))
 
-        def row(k, v):
-            rb = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
-            kl = Gtk.Label(label=k, xalign=0)
-            kl.get_style_context().add_class("settings-k")
-            kl.set_size_request(150, -1)
-            vl = Gtk.Label(label=v, xalign=0, wrap=True)
-            vl.get_style_context().add_class("settings-v")
-            rb.pack_start(kl, False, False, 0)
-            rb.pack_start(vl, True, True, 0)
-            return rb
+    def set_ntp(self, sw):
+        pkexec(f"timedatectl set-ntp {'yes' if sw.get_active() else 'no'}")
+        return True
 
-        info.pack_start(row("نسخه", f"SimorghOS {VERSION}"), False, False, 0)
-        for k, getter in (("کرنل", self._kernel), ("پردازنده", self._cpu),
-                          ("حافظه", self._ram), ("میزان راه‌اندازی", self._uptime),
-                          ("گرافیک", self._gpu)):
-            try:
-                v = getter()
-            except Exception:
-                v = "—"
-            info.pack_start(row(k, v), False, False, 0)
-        b.pack_start(info, False, False, 0)
+    # ── about ─────────────────────────────────────────────────────────
+    def page_about(self):
+        b = card()
+        img = Gtk.Image.new_from_icon_name("simorgh", Gtk.IconSize.DIALOG)
+        img.set_halign(Gtk.Align.CENTER)
+        b.pack_start(img, False, False, 0)
+        b.pack_start(label("Simorgh OS", bold=True), False, False, 0)
+        b.pack_start(label("Version 0.0.1", cls="dim"), False, False, 0)
+        for line in (
+            "Independent Linux desktop with Hyprland, a unified app hub, "
+            "and a first-class Persian/English experience.",
+            "https://github.com/ZALPRO/SimorghOS",
+        ):
+            b.pack_start(label(line, cls="dim"), False, False, 2)
         return b
 
-    # ── system info getters ────────────────────────────────────────────────
-    @staticmethod
-    def _kernel():
-        return open("/proc/sys/kernel/osrelease").read().strip()
 
-    @staticmethod
-    def _cpu():
-        for line in open("/proc/cpuinfo"):
-            if line.startswith("model name"):
-                return line.split(":", 1)[1].strip()
-        return "—"
-
-    @staticmethod
-    def _ram():
-        d = {}
-        for line in open("/proc/meminfo"):
-            k, v = line.split(":", 1)
-            d[k.strip()] = int(v.strip().split()[0])
-        gb = d.get("MemTotal", 0) / 1024 / 1024
-        return f"{gb:.1f} GB"
-
-    @staticmethod
-    def _uptime():
-        s = int(open("/proc/uptime").read().split()[0])
-        h, rem = divmod(s, 3600)
-        m, _ = divmod(rem, 60)
-        return f"{h} ساعت و {m} دقیقه"
-
-    @staticmethod
-    def _gpu():
-        import subprocess
-        try:
-            out = subprocess.run(["lspci"], capture_output=True, text=True).stdout
-            for line in out.splitlines():
-                if "VGA" in line or "3D" in line or "Display" in line:
-                    return line.split(":", 2)[-1].strip()
-        except Exception:
-            pass
-        return "—"
-
-
-def main():
-    Settings()
-    Gtk.main()
+def _hex(c):
+    c = c.lstrip("#")
+    return tuple(int(c[i:i + 2], 16) / 255 for i in (0, 2, 4))
 
 
 if __name__ == "__main__":
-    main()
+    from gi.repository import Gdk
+    Settings()
+    Gtk.main()

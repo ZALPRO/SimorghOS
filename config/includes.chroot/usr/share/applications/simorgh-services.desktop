@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=
+Name[fa]=سرویس‌ها
+Services
+Comment=Autostart and user services
+Exec=simorgh-services
+Icon=services
+Terminal=false
+Categories=System;Simorgh;
+Keywords=simorgh;

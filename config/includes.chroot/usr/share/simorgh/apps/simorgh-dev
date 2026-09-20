@@ -30,7 +30,7 @@ class Dev:
         b.get_style_context().add_class("suggested-action")
         b.connect("clicked", lambda x: run_cmd(
             ["pkexec", "apt-get", "install", "-y"] + DEV_PKGS,
-            lambda ok, out: self.state.set_text("installed ✔" if ok else out[-300:])))
+            lambda ok, out: self.state.set_text("installed" if ok else out[-300:])))
         b2 = Gtk.Button(label="Remove toolchain")
         b2.connect("clicked", lambda x: run_cmd(
             ["pkexec", "apt-get", "remove", "-y"] + DEV_PKGS,

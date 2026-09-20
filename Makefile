@@ -13,8 +13,10 @@ lint:
 	bash -n config/includes.chroot/usr/share/simorgh/bin/simorgh-set-theme
 	bash -n config/includes.chroot/usr/share/simorgh/bin/simorgh
 	bash -n config/includes.chroot/usr/share/simorgh/bin/simorgh-center
-	bash -n config/includes.chroot/usr/share/simorgh/bin/simorgh-store
+	bash -n config/includes.chroot/usr/share/simorgh/bin/simorgh-appcenter
 	bash -n scripts/install-simorgh.sh build.sh
+	@for f in config/includes.chroot/usr/share/simorgh/apps/*; do python3 -m py_compile "$$f"; done
+	@rm -rf config/includes.chroot/usr/share/simorgh/apps/__pycache__
 	@echo lint OK
 
 clean:

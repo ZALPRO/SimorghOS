@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=
+Name[fa]=فونت‌ها
+Fonts
+Comment=Font manager
+Exec=simorgh-fonts
+Icon=fonts
+Terminal=false
+Categories=System;Simorgh;
+Keywords=simorgh;

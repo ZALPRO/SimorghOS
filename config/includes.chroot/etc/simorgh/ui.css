@@ -11,7 +11,11 @@
 @define-color warn #f9e2af;
 @define-color ok #a6e3a1;
 
-* { transition: none; }
+/* motion: subtle, interruptible */
+button, entry, row, tab, switch, scale slider {
+  transition: background-color .12s ease, border-color .12s ease,
+              color .12s ease, box-shadow .12s ease, transform .12s ease;
+}
 
 window.simorgh, window.simorgh > decoration {
   background: @bg; color: @text; border-radius: 16px;
@@ -127,3 +131,66 @@ overshoot.top { background: none; }
 .wall-thumb { border-radius: 12px; border: 2px solid alpha(@overlay, .8); }
 .wall-thumb:hover { border-color: alpha(@accent, .7); }
 .wall-active { border-color: @accent; box-shadow: 0 0 0 3px alpha(@accent, .3); }
+/* ── new-app component states ──────────────────────────────────── */
+.dim { color: @subtext; }
+
+.simorgh-sidebar {
+  background: alpha(@surface, .6);
+  border-right: 1px solid alpha(@overlay, .7);
+}
+.simorgh-sidebar button { border-radius: 10px; margin: 1px 8px; }
+.simorgh-sidebar button:hover { background: alpha(@overlay, .7); }
+.active-place { background: alpha(@accent, .2) !important; }
+
+.power-btn {
+  background: @surface; border: 1px solid alpha(@overlay, 1);
+  border-radius: 16px; padding: 14px;
+}
+.power-btn:hover { background: @overlay; }
+.power-hover { border-color: @accent !important; box-shadow: 0 0 12px alpha(@accent, .4); }
+
+.store-row { border-radius: 12px; }
+.store-row:hover { background: alpha(@overlay, .55); }
+
+.video-card {
+  background: @surface; border: 1px solid alpha(@overlay, .9);
+  border-radius: 14px; padding: 8px;
+}
+.video-card:hover { border-color: alpha(@accent, .55); background: @overlay; }
+
+.note-row { border-radius: 10px; }
+.note-row:selected { background: alpha(@accent, .22); }
+
+.note-editor, .note-editor text {
+  background: alpha(@surface, .7);
+  border: 1px solid alpha(@overlay, .8);
+  border-radius: 12px;
+  font-family: monospace;
+  padding: 8px;
+}
+
+.swatch {
+  font-size: 20px; border-radius: 999px; width: 44px; height: 44px;
+  border: 2px solid alpha(@text, .25); background: transparent;
+}
+.swatch:hover { border-color: @text; transform: scale(1.08); }
+
+.font-preview {
+  background: @surface; border-radius: 12px;
+  border: 1px solid alpha(@overlay, .9);
+  padding: 10px 14px;
+}
+
+/* file manager */
+treeview { background: alpha(@surface, .35); }
+treeview header button {
+  background: transparent; color: @subtext; border-radius: 8px;
+  padding: 4px 10px; font-weight: 600;
+}
+treeview header button:hover { background: alpha(@overlay, .6); color: @text; }
+treeview:selected { background: alpha(@accent, .22); }
+treeview:selected:focus { background: alpha(@accent, .3); }
+
+/* progress micro-feedback */
+progressbar text { color: @text; }
+progressbar:indeterminate progress { background: @accent; }

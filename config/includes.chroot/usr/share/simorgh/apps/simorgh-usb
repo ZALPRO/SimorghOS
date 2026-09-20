@@ -1,0 +1,226 @@
+#!/usr/bin/env python3
+"""SimorghOS — USB Creator: pick an ISO, pick a USB drive, write with dd,
+show progress, optional SHA-256 verification."""
+import glob
+import hashlib
+import os
+import sys
+
+sys.path.insert(0, "/usr/share/simorgh")
+from gi.repository import Gtk, GLib  # noqa: E402
+from ui import card, header, init, label, run_cmd  # noqa: E402
+
+ISO_GLOBS = [
+    "/home/*/Downloads/*.iso", "/home/*/iso/*.iso",
+    "/home/user/*.iso", "/opt/*.iso", "/srv/*.iso",
+]
+
+
+def find_isos():
+    out = []
+    for g in ISO_GLOBS:
+        for p in sorted(glob.glob(g)):
+            if p not in out:
+                out.append(p)
+    return out
+
+
+def drives():
+    """Return [(device, size_human, mount_or_name)] for removable USB media."""
+    out = []
+    try:
+        import subprocess
+        raw = subprocess.run(["lsblk", "-bpo", "NAME,SIZE,TYPE,DISC-KNAME,MODEL,MOUNTPOINT"],
+                             capture_output=True, text=True, timeout=10).stdout
+        for line in raw.splitlines()[1:]:
+            parts = line.split()
+            if len(parts) < 4:
+                continue
+            name, size, typ, disk = parts[0], int(parts[1]), parts[2], parts[3]
+            if typ == "disk" and name.startswith("loop"):
+                continue
+            model = parts[5] if len(parts) > 5 else ""
+            mount = parts[6] if len(parts) > 6 else ""
+            if "USB" in model.upper() or " Kingston" in model or "SanDisk" in model:
+                out.append((f"/dev/{name}", f"{size / 1e9:.1f} GB", model, mount))
+            elif typ == "disk" and disk and not name.startswith("loop") and not name.startswith("sr"):
+                out.append((f"/dev/{name}", f"{size / 1e9:.1f} GB", model or name, mount))
+    except Exception:  # noqa: BLE001
+        pass
+    return out
+
+
+class UsbWriter:
+    def __init__(self):
+        self.win = init("USB Creator", 640, 640)
+        header(self.win, "USB Creator", "Write SimorghOS (or any ISO) to a USB drive", icon="usb")
+        body = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        body.set_margin_top(12); body.set_margin_start(14); body.set_margin_end(14)
+        body.set_margin_bottom(14)
+        self.win.add(body)
+
+        c1 = card()
+        c1.pack_start(label("1 · ISO image", bold=True), False, False, 0)
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        self.iso_entry = Gtk.Entry()
+        self.iso_entry.set_hexpand(True)
+        row.pack_start(self.iso_entry, True, True, 0)
+        pick = Gtk.Button(label="Browse…")
+        pick.connect("clicked", self.pick_iso)
+        row.pack_start(pick, False, False, 0)
+        c1.pack_start(row, False, False, 0)
+        self.iso_info = label("", cls="dim")
+        c1.pack_start(self.iso_info, False, False, 0)
+        body.pack_start(c1, False, False, 0)
+
+        c2 = card()
+        c2.pack_start(label("2 · Target drive", bold=True), False, False, 0)
+        self.drive_combo = Gtk.ComboBoxText()
+        self.refresh_drives()
+        c2.pack_start(self.drive_combo, False, False, 0)
+        warn = label("Warning: everything on the selected drive is erased.", cls="state-error")
+        c2.pack_start(warn, False, False, 0)
+        body.pack_start(c2, False, False, 0)
+
+        c3 = card()
+        c3.pack_start(label("3 · Write", bold=True), False, False, 0)
+        self.progress = Gtk.ProgressBar()
+        self.progress.set_text("Ready")
+        self.progress.set_show_text(True)
+        c3.pack_start(self.progress, False, False, 0)
+        self.status = label("", cls="dim")
+        c3.pack_start(self.status, False, False, 0)
+        btns = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.write_btn = Gtk.Button(label="Write to USB")
+        self.write_btn.get_style_context().add_class("destructive-action")
+        self.write_btn.connect("clicked", self.start_write)
+        btns.pack_start(self.write_btn, False, False, 0)
+        self.verify_chk = Gtk.CheckButton(label="Verify SHA-256 after writing")
+        btns.pack_start(self.verify_chk, False, False, 0)
+        c3.pack_start(btns, False, False, 0)
+        body.pack_start(c3, False, False, 0)
+        self.win.show_all()
+
+    def pick_iso(self, _b):
+        d = Gtk.FileChooserDialog(title="Choose ISO", transient_for=self.win,
+                                  action=Gtk.FileChooserAction.OPEN)
+        d.add_button("Cancel", Gtk.ResponseType.CANCEL)
+        d.add_button("Open", Gtk.ResponseType.OK)
+        f = Gtk.FileFilter.new_with_name("ISO images")
+        f.add_pattern("*.iso")
+        d.add_filter(f)
+        if d.run() == Gtk.ResponseType.OK:
+            self.iso_entry.set_text(d.get_filename())
+        d.destroy()
+
+    def refresh_drives(self):
+        self.drives = drives()
+        self.drive_combo.remove_all()
+        for dev, size, model, mount in self.drives:
+            self.drive_combo.append_text(f"{dev}  —  {size}  {model}  {mount or ''}".strip())
+        if self.drives:
+            self.drive_combo.set_active(0)
+        else:
+            self.drive_combo.append_text("No removable USB drives found")
+
+    def iso_changed(self, entry=None):
+        p = self.iso_entry.get_text()
+        if p and os.path.exists(p):
+            sha_file = p + ".sha256"
+            note = ""
+            if os.path.exists(sha_file):
+                note = f"  ·  checksum file: {os.path.basename(sha_file)}"
+            self.iso_info.set_text(f"{os.path.getsize(p) / 1e9:.2f} GB{note}")
+            self.sha_expected = None
+            if os.path.exists(sha_file):
+                self.sha_expected = open(sha_file).read().split()[0]
+        else:
+            self.iso_info.set_text("File not found") if p else self.iso_info.set_text("")
+            self.sha_expected = None
+
+    def start_write(self, _b):
+        p = self.iso_entry.get_text()
+        if not p or not os.path.exists(p):
+            self.status.set_text("Choose a valid ISO first.")
+            return
+        i = self.drive_combo.get_active()
+        if i < 0 or not self.drives:
+            self.status.set_text("No USB drive selected.")
+            return
+        dev = self.drives[i][0]
+        d = Gtk.MessageDialog(transient_for=self.win, modal=True,
+                              message_type=Gtk.MessageType.WARNING,
+                              buttons=Gtk.ButtonsType.YES_NO,
+                              text=f"Erase {dev} and write {os.path.basename(p)}?")
+        resp = d.run()
+        d.destroy()
+        if resp != Gtk.ResponseType.YES:
+            return
+        self.write_btn.set_sensitive(False)
+        self.progress.set_fraction(0.0)
+        total = os.path.getsize(p)
+
+        def work():
+            import subprocess
+            r = subprocess.run(
+                ["sh", "-c", f"dd if={p} of={dev} bs=4M conv=fsync status=progress 2>&1"],
+                capture_output=True, text=True, timeout=3600)
+            out = r.stdout or ""
+            ok = r.returncode == 0
+            GLib.idle_add(self._written, ok, out, total, dev)
+        import threading
+        threading.Thread(target=work, daemon=True).start()
+
+    def _written(self, ok, out, total, dev):
+        # dd status=progress prints "X bytes (X GB, X sdd4M) copied, ..."
+        pos = 0
+        for line in out.splitlines():
+            if "copied" in line:
+                try:
+                    pos = int(line.split()[0])
+                except (ValueError, IndexError):
+                    pass
+        frac = min(1.0, pos / total) if total else 1.0
+        self.progress.set_fraction(frac)
+        if ok:
+            self.progress.set_text("Written")
+            self.status.set_text(f"{dev} ready. Reboot to install from USB.")
+            self.status.get_style_context().add_class("state-ok")
+            if self.verify_chk.get_active() and self.sha_expected:
+                self.status.set_text("Verifying SHA-256…")
+                self.verify(dev)
+        else:
+            self.progress.set_text("Failed")
+            self.status.set_text(out.strip()[-200:])
+            self.status.get_style_context().add_class("state-error")
+        self.write_btn.set_sensitive(True)
+        return False
+
+    def verify(self, dev):
+        def work():
+            import subprocess
+            r = subprocess.run(
+                ["sh", "-c", f"sha256sum {dev} | awk '{{print $1}}'"],
+                capture_output=True, text=True, timeout=3600)
+            got = (r.stdout or "").strip()
+            GLib.idle_add(self._verified, got == self.sha_expected, got)
+        import threading
+        threading.Thread(target=work, daemon=True).start()
+
+    def _verified(self, ok, got):
+        self.status.set_text(
+            f"Verification OK — {got[:16]}…" if ok else f"Mismatch! Got {got[:16]}…")
+        self.status.get_style_context().remove_class("state-ok")
+        self.status.get_style_context().add_class("state-ok" if ok else "state-error")
+        return False
+
+
+if __name__ == "__main__":
+    app = UsbWriter()
+    app.iso_entry.connect("changed", app.iso_changed)
+    # prefill the first known ISO
+    for p in find_isos():
+        app.iso_entry.set_text(p)
+        app.iso_changed()
+        break
+    Gtk.main()

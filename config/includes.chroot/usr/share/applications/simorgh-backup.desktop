@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=
+Name[fa]=پشتیبان‌گیری
+Backup
+Comment=Snapshots and file archives
+Exec=simorgh-backup
+Icon=backup
+Terminal=false
+Categories=System;Simorgh;
+Keywords=simorgh;

@@ -179,7 +179,7 @@ class Cal:
         for i, e in enumerate(self.events.get(self.sel, [])):
             row = Gtk.Box(spacing=6)
             row.pack_start(label("• " + e), True, True, 6)
-            rm = Gtk.Button(label="✕"); rm.set_relief(Gtk.ReliefStyle.NONE)
+            rm = Gtk.Button(icon="window-close"); rm.set_relief(Gtk.ReliefStyle.NONE)
             rm.connect("clicked", lambda b, i=i: self.rm_event(i))
             row.pack_end(rm, False, False, 2)
             self.ev_list.pack_start(row, False, False, 1)

@@ -43,11 +43,11 @@ case "$cmd" in
           echo "• flathub: $id"
           flatpak install -y flathub "$id"
         else
-          echo "✗ not found in Debian repo or Flathub: $pkg" >&2; exit 1
+          echo "not found in Debian repo or Flathub: $pkg" >&2; exit 1
         fi
       fi
     done
-    echo "✓ done"
+    echo "done"
     ;;
   remove)
     [ $# -ge 1 ] || { usage; exit 1; }
@@ -58,7 +58,7 @@ case "$cmd" in
         id="$(flatpak list | grep -i "$pkg" | awk '{print $NF}' | head -1)"
         flatpak remove -y "$id"
       else
-        echo "✗ not installed: $pkg" >&2
+        echo "not installed: $pkg" >&2
       fi
     done
     ;;

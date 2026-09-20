@@ -1,12 +1,11 @@
 [Desktop Entry]
 Type=Application
-Name=Simorgh Store
-Name[fa]=فروشگاه سیمرغ
-Comment=Search and install apps from Debian and Flathub
-Comment[fa]=جست‌وجو و نصب برنامه‌ها از Debian و Flathub
-Exec=/usr/share/simorgh/apps/simorgh-store
-Icon=system-software-install
+Name=
+Name[fa]=فروشگاه
+Store
+Comment=Install anything — apt, flatpak, simorgh
+Exec=simorgh-store
+Icon=store
 Terminal=false
-Categories=System;Utility;SoftwareManagement;
-Keywords=store;apps;flatpak;install;appcenter;
-X-Simorgh-Core=true
+Categories=System;Simorgh;
+Keywords=store;app;install;

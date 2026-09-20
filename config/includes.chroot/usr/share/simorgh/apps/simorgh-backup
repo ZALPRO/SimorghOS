@@ -1,0 +1,213 @@
+#!/usr/bin/env python3
+"""SimorghOS — Backup: Timeshift snapshots (create now, browse, restore,
+system vs. system+home, schedule) plus a simple file-archives fallback."""
+import datetime
+import os
+import subprocess
+import sys
+
+sys.path.insert(0, "/usr/share/simorgh")
+from gi.repository import Gtk, GLib  # noqa: E402
+from ui import card, header, init, label, run_cmd, pkexec  # noqa: E402
+
+
+def sh(argv, timeout=20):
+    try:
+        return subprocess.run(argv, capture_output=True, text=True,
+                              timeout=timeout).stdout.strip()
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def snapshots():
+    out = []
+    base = "/run/timeshift/backup"
+    if os.path.isdir(base):
+        for d in sorted(os.listdir(base), reverse=True):
+            p = os.path.join(base, d)
+            if os.path.isdir(p) and d.startswith("timeshift-"):
+                out.append(p)
+    return out
+
+
+class Backup:
+    def __init__(self):
+        self.win = init("Backup", 800, 640)
+        header(self.win, "Backup", "Timeshift snapshots & file archives", icon="backup")
+        self.stack = Gtk.Stack()
+        self.stack.set_transition_type(Gtk.StackTransitionType.SLIDE_LEFT_RIGHT)
+        self.win.add(self.stack)
+        self.stack.add_named(self.page_main(), "main")
+        self.stack.add_named(self.page_snap(), "snap")
+        self.win.show_all()
+
+    def page_main(self):
+        col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        col.set_margin_start(12); col.set_margin_end(12)
+        col.set_margin_top(10); col.set_margin_bottom(10)
+
+        c = card()
+        c.pack_start(label("Snapshot (Timeshift)", bold=True), False, False, 0)
+        c.pack_start(label("Full system snapshot — the fastest way to roll back "
+                           "a bad update or config change.", cls="dim"),
+                     False, False, 2)
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.scope = Gtk.ComboBoxText()
+        self.scope.append_text("System files only (fast, small)")
+        self.scope.append_text("System + /home (complete)")
+        self.scope.set_active(0)
+        row.pack_start(self.scope, True, True, 0)
+        mk = Gtk.Button(label="Create snapshot now")
+        mk.get_style_context().add_class("suggested-action")
+        mk.connect("clicked", self.create)
+        row.pack_start(mk, False, False, 0)
+        c.pack_start(row, False, False, 0)
+        self.progress = Gtk.ProgressBar()
+        self.progress.set_no_show_all(True)
+        c.pack_start(self.progress, False, False, 0)
+        self.status = label("Ready.", cls="dim")
+        c.pack_start(self.status, False, False, 0)
+        col.pack_start(c, False, False, 0)
+
+        c = card()
+        c.pack_start(label("Browse snapshots", bold=True), False, False, 0)
+        browse = Gtk.Button(label="Show snapshots…")
+        browse.connect("clicked", self.show_snaps)
+        c.pack_start(browse, False, False, 0)
+        col.pack_start(c, False, False, 0)
+
+        c = card()
+        c.pack_start(label("File archive (simple)", bold=True), False, False, 0)
+        c.pack_start(label("Pack ~/Documents + ~/Pictures + ~/Downloads into a "
+                           "restorable archive on an external drive or ~/Backups.",
+                           cls="dim"), False, False, 0)
+        frow = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        fa = Gtk.Button(label="Create file archive")
+        fa.connect("clicked", self.archive)
+        frow.pack_start(fa, False, False, 0)
+        self.arch_list = label("", cls="dim")
+        frow.pack_start(self.arch_list, True, True, 0)
+        c.pack_start(frow, False, False, 0)
+        col.pack_start(c, False, False, 0)
+
+        c = card()
+        c.pack_start(label("Recovery", bold=True), False, False, 0)
+        rb = Gtk.Button(label="Open Recovery Center…")
+        rb.connect("clicked", lambda _b: run_cmd(["simorgh-recovery"]))
+        c.pack_start(rb, False, False, 0)
+        col.pack_start(c, False, False, 0)
+        return col
+
+    def page_snap(self):
+        col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        col.set_margin_start(12); col.set_margin_end(12)
+        col.set_margin_top(10); col.set_margin_bottom(10)
+        top = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        back = Gtk.Button(label="Back")
+        back.connect("clicked", lambda _b: self.stack.set_visible_child_name("main"))
+        top.pack_start(back, False, False, 0)
+        top.pack_start(label("Snapshots", bold=True), True, True, 0)
+        col.pack_start(top, False, False, 0)
+        sw = Gtk.ScrolledWindow()
+        self.snap_lst = Gtk.ListBox()
+        self.snap_lst.set_selection_mode(Gtk.SelectionMode.NONE)
+        sw.add(self.snap_lst)
+        col.pack_start(sw, True, True, 0)
+        return col
+
+    # ── actions ────────────────────────────────────────────────────────
+    def create(self, _b):
+        home = "yes" if self.scope.get_active() == 1 else "no"
+        self.progress.set_fraction(0.0)
+        self.progress.show()
+        self.status.set_text("Creating snapshot… (Timeshift, btrfs if available)")
+        self.status.get_style_context().add_class("state-warn")
+
+        def work():
+            cmd = ["pkexec", "timeshift", "--create", "--comments",
+                   "simorgh-backup", "--use-rsync"]
+            if home == "yes":
+                cmd += ["--include", "/home"]
+            else:
+                cmd += ["--exclude", "/home"]
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=7200)
+            ok = r.returncode == 0
+            out = (r.stdout or "") + (r.stderr or "")
+            GLib.idle_add(self._created, ok, out[-300:])
+        import threading
+        threading.Thread(target=work, daemon=True).start()
+
+    def _created(self, ok, out):
+        self.progress.set_fraction(1.0 if ok else 0.5)
+        self.status.set_text("Snapshot created." if ok else f"Failed: {out}")
+        self.status.get_style_context().remove_class("state-warn")
+        self.status.get_style_context().add_class("state-ok" if ok else "state-error")
+        return False
+
+    def show_snaps(self, _b):
+        for c in self.snap_lst.get_children():
+            self.snap_lst.remove(c)
+        snaps = snapshots()
+        if not snaps:
+            self.snap_lst.add(Gtk.ListBoxRow().add(
+                label("No snapshots yet — create one.", cls="dim")))
+        for p in snaps:
+            row = Gtk.ListBoxRow()
+            row.get_style_context().add_class("store-row")
+            box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            box.set_margin_start(8); box.set_margin_top(6); box.set_margin_bottom(6)
+            t = label(os.path.basename(p))
+            box.pack_start(t, True, True, 0)
+            rb = Gtk.Button(label="Restore…")
+            rb.get_style_context().add_class("destructive-action")
+            rb.connect("clicked", self.restore, p)
+            box.pack_start(rb, False, False, 0)
+            row.add(box)
+            self.snap_lst.add(row)
+        self.snap_lst.show_all()
+        self.stack.set_visible_child_name("snap")
+
+    def restore(self, _b, p):
+        d = Gtk.MessageDialog(transient_for=self.win, modal=True,
+                              message_type=Gtk.MessageType.WARNING,
+                              buttons=Gtk.ButtonsType.YES_NO,
+                              text=f"Restore system from {os.path.basename(p)}?\n"
+                                   "You will be logged out.")
+        r = d.run(); d.destroy()
+        if r == Gtk.ResponseType.YES:
+            pkexec(f"timeshift --restore --snapshot {p}")
+
+    def archive(self, _b):
+        dst_dir = os.path.expanduser("~/Backups")
+        os.makedirs(dst_dir, exist_ok=True)
+        stamp = datetime.datetime.now().strftime("%Y-%m-%d_%H%M")
+        dst = f"{dst_dir}/simorgh-files-{stamp}.tar.gz"
+
+        def work():
+            import tarfile
+            try:
+                with tarfile.open(dst, "w:gz") as t:
+                    for d in ("Documents", "Pictures", "Downloads", "Notes"):
+                        src = os.path.expanduser("~/" + d)
+                        if os.path.isdir(src):
+                            t.add(src, arcname=d)
+                GLib.idle_add(self._arch_done, True, dst)
+            except Exception as e:  # noqa: BLE001
+                GLib.idle_add(self._arch_done, False, str(e))
+        import threading
+        threading.Thread(target=work, daemon=True).start()
+
+    def _arch_done(self, ok, msg):
+        if ok:
+            self.arch_list.set_text("Latest: " + os.path.basename(msg))
+            self.status.set_text("File archive created.")
+            self.status.get_style_context().add_class("state-ok")
+        else:
+            self.status.set_text(f"Archive failed: {msg}")
+            self.status.get_style_context().add_class("state-error")
+        return False
+
+
+if __name__ == "__main__":
+    Backup()
+    Gtk.main()

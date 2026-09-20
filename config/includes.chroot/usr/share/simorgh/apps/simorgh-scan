@@ -1,0 +1,187 @@
+#!/usr/bin/env python3
+"""SimorghOS — Scan: SANE scanner front-end (preview, resolution, format,
+multi-page PDF, save to ~/Pictures/Scans)."""
+import os
+import subprocess
+import sys
+
+sys.path.insert(0, "/usr/share/simorgh")
+from gi.repository import Gtk, GdkPixbuf, GLib  # noqa: E402
+from ui import card, header, init, label, run_cmd  # noqa: E402
+
+OUT = os.path.expanduser("~/Pictures/Scans")
+
+
+def sh(argv, timeout=30):
+    try:
+        return subprocess.run(argv, capture_output=True, text=True,
+                              timeout=timeout).stdout.strip()
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+class Scan:
+    def __init__(self):
+        self.win = init("Scanner", 820, 640)
+        header(self.win, "Scanner", icon="scanner")
+        body = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        body.set_margin_start(12); body.set_margin_end(12)
+        body.set_margin_top(10); body.set_margin_bottom(10)
+        self.win.add(body)
+
+        self.devices = sh(["scanimage", "--list"]).splitlines()
+        side = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        side.set_size_request(260, -1)
+        if not self.devices:
+            side.pack_start(label("No SANE scanner detected.\n\n"
+                                   "Plug in a USB scanner and open this app "
+                                   "again, or connect over the network with "
+                                   "sane-airscan.", cls="state-warn"), False, False, 0)
+        else:
+            self.dev_combo = Gtk.ComboBoxText()
+            for d in self.devices:
+                self.dev_combo.append_text(d)
+            self.dev_combo.set_active(0)
+            side.pack_start(label("Device", bold=True), False, False, 0)
+            side.pack_start(self.dev_combo, False, False, 0)
+
+            side.pack_start(label("Mode", bold=True), False, False, 6)
+            self.mode = Gtk.ComboBoxText()
+            for m in ("Color", "Gray", "Lineart"):
+                self.mode.append_text(m)
+            self.mode.set_active(0)
+            side.pack_start(self.mode, False, False, 0)
+
+            side.pack_start(label("Resolution", bold=True), False, False, 6)
+            self.dpi = Gtk.SpinButton.new_with_range(72, 1200, 12)
+            self.dpi.set_value(300)
+            side.pack_start(self.dpi, False, False, 0)
+
+            side.pack_start(label("Format", bold=True), False, False, 6)
+            self.fmt = Gtk.ComboBoxText()
+            for f in ("png", "jpeg", "pdf"):
+                self.fmt.append_text(f)
+            self.fmt.set_active(0)
+            side.pack_start(self.fmt, False, False, 0)
+        body.pack_start(side, False, False, 0)
+
+        mid = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        body.pack_start(mid, True, True, 0)
+        self.preview = Gtk.Image()
+        self.preview.set_halign(Gtk.Align.CENTER)
+        self.preview.set_valign(Gtk.Align.CENTER)
+        ph = label("Preview appears here after scanning.", cls="dim")
+        self.preview_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        self.preview_box.pack_start(self.preview, True, True, 0)
+        self.preview_box.pack_start(ph, False, False, 0)
+        mid.pack_start(self.preview_box, True, True, 0)
+
+        bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        scan_b = Gtk.Button(label="Preview")
+        scan_b.connect("clicked", lambda _b: self.do_scan(temp=True))
+        bar.pack_start(scan_b, False, False, 0)
+        save_b = Gtk.Button(label="Save")
+        save_b.connect("clicked", lambda _b: self.do_scan(temp=False))
+        bar.pack_start(save_b, False, False, 0)
+        multi = Gtk.CheckButton(label="Multi-page (keep appending to PDF)")
+        bar.pack_start(multi, False, False, 0)
+        self.multi = multi
+        self.last_pdf = None
+        mid.pack_start(bar, False, False, 0)
+        self.status = label("Ready.", cls="dim")
+        mid.pack_start(self.status, False, False, 0)
+        self.win.show_all()
+
+    def dev(self):
+        i = self.dev_combo.get_active()
+        return self.devices[i] if 0 <= i < len(self.devices) else ""
+
+    def do_scan(self, temp):
+        if not self.devices:
+            self.status.set_text("No scanner available.")
+            return
+        self.status.set_text("Scanning…")
+        self.status.get_style_context().add_class("state-warn")
+        d = self.dev()
+        mode = {"Color": "color", "Gray": "gray", "Lineart": "lineart"}[self.mode.get_active_text()]
+        dpi = int(self.dpi.get_value())
+        fmt = "pnm" if temp else self.fmt.get_active_text()
+
+        def work():
+            os.makedirs(OUT, exist_ok=True)
+            base = ["scanimage", "-d", d, "--mode", mode, "--resolution", str(dpi)]
+            if temp:
+                out = f"{OUT}/preview.pnm"
+                r = subprocess.run(base + ["--format", "pnm", f"--output={out}"],
+                                   capture_output=True, text=True, timeout=600)
+                GLib.idle_add(self._done, r.returncode == 0,
+                             out if r.returncode == 0 else (r.stderr or "scan failed")[-200:], temp)
+                return
+            if fmt == "pdf" and self.last_pdf and self.multi.get_active():
+                page = f"{OUT}/_page.pdf"
+                r1 = subprocess.run(base + ["--batch", "--batch-format", "pdf",
+                                            f"--output={page}"],
+                                    capture_output=True, text=True, timeout=600)
+                if r1.returncode != 0:
+                    GLib.idle_add(self._done, False, (r1.stderr or "scan failed")[-200:], temp)
+                    return
+                merged = f"{OUT}/_merged.pdf"
+                r2 = subprocess.run(["pdfunite", self.last_pdf, page, merged],
+                                    capture_output=True, text=True, timeout=120)
+                if r2.returncode == 0:
+                    os.replace(merged, self.last_pdf)
+                    os.remove(page)
+                    GLib.idle_add(self._done, True, self.last_pdf, temp)
+                else:
+                    GLib.idle_add(self._done, False, (r2.stderr or "merge failed")[-200:], temp)
+                return
+            out = f"{OUT}/{self._next_name(fmt)}"
+            r = subprocess.run(base + ["--format", fmt, f"--output={out}"],
+                               capture_output=True, text=True, timeout=600)
+            if r.returncode == 0:
+                if fmt == "pdf":
+                    self.last_pdf = out
+                GLib.idle_add(self._done, True, out, temp)
+            else:
+                GLib.idle_add(self._done, False, (r.stderr or "scan failed")[-200:], temp)
+        import threading
+        threading.Thread(target=work, daemon=True).start()
+
+    def _next_name(self, fmt):
+        os.makedirs(OUT, exist_ok=True)
+        i = 1
+        while os.path.exists(f"{OUT}/scan-{i:03d}.{fmt}"):
+            i += 1
+        return f"scan-{i:03d}.{fmt}"
+
+    def _done(self, ok, out, temp):
+        self.status.get_style_context().remove_class("state-warn")
+        if not ok:
+            self.status.set_text(f"Error: {out}")
+            self.status.get_style_context().add_class("state-error")
+            return False
+        if temp:
+            try:
+                pb = GdkPixbuf.Pixbuf.new_from_file(out)
+                w, h = pb.get_width(), pb.get_height()
+                if w > 520:
+                    pb = pb.scale_simple(520, int(h * 520 / w),
+                                          GdkPixbuf.InterpType.BILINEAR)
+                self.preview.set_from_pixbuf(pb)
+                self.preview.show()
+            except Exception as e:  # noqa: BLE001
+                self.status.set_text(f"Scanned, but preview failed: {e}")
+                return False
+            self.status.set_text("Preview ready — press Save to keep it.")
+            self.status.get_style_context().add_class("state-ok")
+        else:
+            if self.fmt.get_active_text() == "pdf":
+                self.last_pdf = out if "tmp_new" not in out else self.last_pdf
+            self.status.set_text(f"Saved: {out}")
+            self.status.get_style_context().add_class("state-ok")
+        return False
+
+
+if __name__ == "__main__":
+    Scan()
+    Gtk.main()

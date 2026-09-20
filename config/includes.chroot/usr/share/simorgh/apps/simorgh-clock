@@ -74,7 +74,7 @@ class Clock:
         row.pack_start(label(day), False, False, 4)
         big = label(txt, size=16, bold=True)
         row.pack_end(big, False, False, 6)
-        rm = Gtk.Button(label="✕")
+        rm = Gtk.Button(icon="window-close")
         rm.set_relief(Gtk.ReliefStyle.NONE)
         rm.connect("clicked", lambda b: (self.data["world"].remove(tz), save(self.data), self.tick(None)))
         row.pack_end(rm, False, False, 2)
@@ -110,7 +110,7 @@ class Clock:
         sw.connect("state-set", lambda s, v: (a.update(on=v), save(self.data), False))
         row.pack_start(sw, False, False, 6)
         row.pack_start(label(f"{a['h']:02d}:{a['m']:02d}", size=16, bold=True), True, True, 6)
-        rm = Gtk.Button(label="✕"); rm.set_relief(Gtk.ReliefStyle.NONE)
+        rm = Gtk.Button(icon="window-close"); rm.set_relief(Gtk.ReliefStyle.NONE)
         rm.connect("clicked", lambda b: (self.data["alarms"].pop(i), save(self.data), self.tick(None)))
         row.pack_end(rm, False, False, 2)
         return row

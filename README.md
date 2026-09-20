@@ -73,7 +73,18 @@ simorgh screenshot                save a screenshot
 simorgh screenshot area           screenshot a selected region
 simorgh record start | stop       record the screen (wf-recorder)
 simorgh clipboard                 pick from clipboard history
+
+simorgh apps                      list every core app
+simorgh open files                launch any app by name
+simorgh files|settings|store|power|usb|scan|tweaks|notes|videos|downloads|backup|archive|fonts|services
 ```
+
+The desktop ships 30+ native apps (Files, Settings, Store, Power, USB Creator,
+Scanner, Tweaks, Notes, Videos, Photos, Music, Downloads, Backup, Archives,
+Fonts, Services, Calendar, Clock, Screenshot, Recorder, Security, Update,
+Recovery, Accessibility, Developer, User, Mail, Welcome, …) — the full
+catalogue with exact commands: [docs/APPS.md](docs/APPS.md) ·
+[APPS-fa.md](docs/APPS-fa.md).
 
 Standalone equivalents (same tools, direct): `simorgh-setup`, `simorgh-lang en|fa`,
 `simorgh-set-theme dark|lapis|light`, `simorgh-jdate [--short|--waybar|--latin]`,
@@ -143,6 +154,8 @@ qemu-system-x86_64 -m 2048 -cdrom dist/simorgh-os-0.0.1-amd64.iso
 
 ## 10. More reading
 
+- [Application suite (English)](docs/APPS.md)
+- [Application suite (Persian)](docs/APPS-fa.md)
 - [Installation guide (Persian)](docs/INSTALL-fa.md)
 - [Keyboard & Persian input (Persian)](docs/KEYBOARD-fa.md)
 - [Theming (Persian)](docs/THEME-fa.md)

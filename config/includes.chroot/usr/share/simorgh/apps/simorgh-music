@@ -16,6 +16,13 @@ PL = os.path.expanduser("~/.config/simorgh/playlists.json")
 EXTS = (".mp3", ".flac", ".ogg", ".opus", ".m4a", ".wav")
 
 
+def _transport(icon, tip):
+    b = Gtk.Button()
+    b.set_tooltip_text(tip)
+    b.add(Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.BUTTON))
+    return b
+
+
 class Music:
     def __init__(self):
         self.sock_path = os.path.join(tempfile.gettempdir(), "simorgh-music.sock")
@@ -65,10 +72,10 @@ class Music:
         ctl.set_halign(Gtk.Align.CENTER)
         for ic, fn in [("back", self.prev), ("video", None), ("forward", self.next)]:
             pass
-        b_prev = Gtk.Button(label="⏮")
-        b_play = Gtk.Button(label="▶ / ⏸")
-        b_next = Gtk.Button(label="⏭")
-        b_stop = Gtk.Button(label="⏹")
+        b_prev = _transport("media-skip-backward", "Previous")
+        b_play = _transport("media-playback-start", "Play / Pause")
+        b_next = _transport("media-skip-forward", "Next")
+        b_stop = _transport("media-playback-stop", "Stop")
         b_prev.connect("clicked", lambda b: self.prev())
         b_play.connect("clicked", lambda b: self.toggle())
         b_next.connect("clicked", lambda b: self.next())

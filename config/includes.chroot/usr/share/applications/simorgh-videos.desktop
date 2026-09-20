@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=
+Name[fa]=ویدیوها
+Videos
+Comment=Video library
+Exec=simorgh-videos
+Icon=videos
+Terminal=false
+Categories=System;Simorgh;
+Keywords=simorgh;

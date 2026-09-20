@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=
+Name[fa]=اسکنر
+Scanner
+Comment=Scan documents
+Exec=simorgh-scan
+Icon=scan
+Terminal=false
+Categories=System;Simorgh;
+Keywords=simorgh;

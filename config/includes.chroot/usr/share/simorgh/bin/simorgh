@@ -50,6 +50,13 @@ TOOLS / ابزارها
   record <start|stop>     screen recording             ضبط صفحه
   clipboard               clipboard history picker     تاریخچهٔ کلیپ‌بورد
 
+APPS / برنامه‌ها
+  apps                    list every Simorgh app       فهرست برنامه‌ها
+  open <name>             launch an app (simorgh open files)
+  files | settings | store | power | usb | scan | tweaks
+  notes | videos | photos | music | downloads | backup
+  archive | fonts | services | welcome
+
 EXTEND / افزونه‌ها
   plugins                 list user plugins            فهرست افزونه‌ها
   Drop any executable into ~/.config/simorgh/plugins/
@@ -64,7 +71,7 @@ cmd_update() {
     $SUDO apt-get full-upgrade -y
     $SUDO apt-get autoremove -y --purge
     if command -v flatpak >/dev/null; then echo "── flatpak ──"; flatpak update -y; fi
-    echo "SimorghOS: up to date. ✔"
+    echo "SimorghOS: up to date."
 }
 
 is_flatpak_id() { [[ "$1" =~ ^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_-]*){2,}$ ]]; }
@@ -151,6 +158,25 @@ cmd_clipboard() {
     cliphist list | rofi -dmenu -i -p "clipboard" | cliphist decode | wl-copy
 }
 
+cmd_apps() {
+    local f
+    for f in /usr/share/simorgh/apps/simorgh-*; do
+        [[ -f "$f" ]] || continue
+        local name desc
+        name=$(basename "$f")
+        desc=$(sed -n '2s/^"""SimorghOS — \(.*\)""".*/\1/p' "$f" | cut -c1-60)
+        printf "  %-22s %s\n" "$name" "${desc:-}"
+    done
+}
+
+cmd_open() {
+    local n="${1:-}"
+    [[ -n "$n" ]] || { cmd_apps; return 2; }
+    local p="/usr/share/simorgh/apps/simorgh-$n"
+    [[ -x "$p" || -x "/usr/bin/simorgh-$n" ]] || { echo "no such app: $n (simorgh apps)" >&2; return 2; }
+    exec "simorgh-$n" "${@:2}"
+}
+
 cmd_plugins() {
     local d f found=0
     for d in "${PLUG_DIRS[@]}"; do
@@ -181,11 +207,30 @@ case "$CMD" in
                          echo "calendar → ${1:-jalali}" ;;
     wallpaper)           cmd_wallpaper "$@" ;;
     center)              /usr/share/simorgh/bin/simorgh-center ;;
-    store)               /usr/share/simorgh/bin/simorgh-store ;;
+    appcenter)           /usr/share/simorgh/bin/simorgh-appcenter ;;
     date|jdate)          /usr/share/simorgh/bin/simorgh-jdate ;;
     screenshot|shot)     cmd_screenshot "$@" ;;
     record)              cmd_record "$@" ;;
     clipboard|clip)      cmd_clipboard ;;
+    apps)                cmd_apps ;;
+    open|app)            cmd_open "$@" ;;
+    files)               exec simorgh-files ;;
+    settings)            exec simorgh-settings ;;
+    store)               exec simorgh-store ;;
+    power)               exec simorgh-power ;;
+    usb)                 exec simorgh-usb ;;
+    scan)                exec simorgh-scan ;;
+    tweaks)              exec simorgh-tweaks ;;
+    notes)               exec simorgh-notes ;;
+    videos)              exec simorgh-videos ;;
+    photos)              exec simorgh-photos ;;
+    music)               exec simorgh-music ;;
+    downloads|download)  exec simorgh-download ;;
+    backup)              exec simorgh-backup ;;
+    archive)             exec simorgh-archive "$@" ;;
+    fonts)               exec simorgh-fonts ;;
+    services)            exec simorgh-services ;;
+    welcome)             exec simorgh-welcome "$@" ;;
     plugins)             cmd_plugins ;;
     *)
         if P="$(find_plugin "$CMD")"; then exec "$P" "$@"; fi

@@ -97,4 +97,6 @@ if command -v hyprctl >/dev/null 2>&1 && [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
     pkill -x xsettingsd || true; (xsettingsd -c /etc/xsettingsd/simorgh.conf &) || true
 fi
 
+mkdir -p "$HOME/.config/simorgh"
+echo "$NAME" > "$HOME/.config/simorgh/theme"
 echo "سیمرغ: تم «$NAME» فعال شد."

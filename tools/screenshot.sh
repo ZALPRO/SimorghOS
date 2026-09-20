@@ -16,7 +16,10 @@ xorriso -osirrox on -indev "$ISO" \
     -extract /live/vmlinuz "$W/vmlinuz" \
     -extract /live/initrd.img "$W/initrd" >/dev/null 2>&1
 
-qemu-system-x86_64 -m "${RAM:-1200}" -smp 2 -cpu max \
+# light by default; override QMEM/QCPU/QPIN for beefier hosts
+QMEM="${QMEM:-1024}"; QCPU="${QCPU:-1}"; QPIN="${QPIN:-1}"
+PIN="taskset -c $QPIN"; command -v taskset >/dev/null || PIN=""
+$PIN nice -n 19 qemu-system-x86_64 -m "$QMEM" -smp "$QCPU" -cpu max \
     -kernel "$W/vmlinuz" -initrd "$W/initrd" -cdrom "$ISO" \
     -append "boot=live quiet $EXTRA" \
     -device virtio-gpu-pci \

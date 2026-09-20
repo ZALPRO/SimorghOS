@@ -33,10 +33,10 @@ declare -A APPS=(
 
 menu() {
   {
-    echo "🔎 Search Flathub… / جست‌وجو"
-    echo "⌨  Install by ID… / نصب با شناسه"
-    echo "⬆  Update all / به‌روزرسانی همه"
-    echo "📋 Installed / نصب‌شده‌ها"
+    echo "Search Flathub / جست‌وجو"
+    echo "Install by ID / نصب با شناسه"
+    echo "Update all / به‌روزرسانی همه"
+    echo "Installed / نصب‌شده‌ها"
     for k in $(printf '%s\n' "${!APPS[@]}" | sort); do
         echo "＋ $k"
     done
@@ -46,15 +46,15 @@ menu() {
 install_id() {
     notify-send "Simorgh" "Installing $1 …" 2>/dev/null
     flatpak install -y flathub "$1" \
-        && notify-send "Simorgh" "Installed: $1 ✔" 2>/dev/null \
-        || notify-send "Simorgh" "Failed: $1 ✘" 2>/dev/null
+        && notify-send "Simorgh" "Installed: $1" 2>/dev/null \
+        || notify-send "Simorgh" "Failed: $1" 2>/dev/null
 }
 
 sel=$(menu)
 [[ -z "$sel" ]] && exit 0
 
 case "$sel" in
-"🔎 Search Flathub… / جست‌وجو")
+"Search Flathub / جست‌وجو")
     q=$(echo "" | $R "Search")
     [[ -z "$q" ]] && exit 0
     pick=$(flatpak search "$q" | $R "Results")
@@ -62,14 +62,14 @@ case "$sel" in
     id=$(awk '{print $NF}' <<<"$pick")
     install_id "$id"
     ;;
-"⌨  Install by ID… / نصب با شناسه")
+"Install by ID / نصب با شناسه")
     id=$(echo "" | $R "Flatpak ID")
     [[ -n "$id" ]] && install_id "$id"
     ;;
-"⬆  Update all / به‌روزرسانی همه")
+"Update all / به‌روزرسانی همه")
     flatpak update -y
     ;;
-"📋 Installed / نصب‌شده‌ها")
+"Installed / نصب‌شده‌ها")
     pick=$(flatpak list --app --columns=name,application | $R "Installed")
     [[ -z "$pick" ]] && exit 0
     id=$(awk '{print $NF}' <<<"$pick")

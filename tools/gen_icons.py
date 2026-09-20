@@ -234,6 +234,76 @@ ICONS = {
         f'<circle cx="24" cy="24" r="6.5" fill="{INK}"/>',
         f'<circle cx="24" cy="24" r="6.5" fill="none" stroke="#ffffff" stroke-width="1.2" opacity="0.25"/>',
     ],
+    "store": [
+        f'<path d="M10.5 19L14 9.5h20L37.5 19z" fill="{G}"/>',
+        f'<rect x="9" y="19" width="30" height="3.2" fill="{GD}"/>',
+        f'<path d="M11 24.5h26V34a4.5 4.5 0 0 1-4.5 4.5h-17A4.5 4.5 0 0 1 11 34z" fill="{G}"/>',
+        f'<rect x="19.5" y="27" width="9" height="11.5" rx="2" fill="{GOLD}"/>',
+        f'<rect x="13.5" y="27" width="4.6" height="4.6" rx="1.2" fill="{WHITE}" opacity="0.85"/>',
+        f'<rect x="29.9" y="27" width="4.6" height="4.6" rx="1.2" fill="{WHITE}" opacity="0.85"/>',
+    ],
+    "usb": [
+        f'<rect x="14" y="15" width="20" height="25" rx="5" fill="{G}"/>',
+        f'<rect x="17.5" y="7" width="5" height="10" rx="1.6" fill="{WHITE}" opacity="0.92"/>',
+        f'<rect x="25.5" y="7" width="5" height="10" rx="1.6" fill="{WHITE}" opacity="0.92"/>',
+        f'<circle cx="24" cy="27" r="6.2" fill="{INK}" opacity="0.32"/>',
+        f'<path d="M24 22.5v9M20.4 28.2l3.6 3.6 3.6-3.6" fill="none" stroke="{GOLD}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>',
+    ],
+    "scan": [
+        f'<rect x="7" y="13" width="34" height="25" rx="5" fill="{DARK2}"/>',
+        f'<rect x="13" y="8" width="22" height="8" rx="3" fill="{G}"/>',
+        f'<rect x="11" y="18.5" width="26" height="15" rx="2.5" fill="{WHITE}" opacity="0.92"/>',
+        f'<path d="M14.5 23.5h19M14.5 27.5h13" stroke="{GD}" stroke-width="2" stroke-linecap="round" opacity="0.65"/>',
+        f'<circle cx="36" cy="12" r="1.7" fill="{GOLD}"/>',
+    ],
+    "tweaks": [
+        f'<rect x="9" y="14" width="30" height="3" rx="1.5" fill="{WHITE}" opacity="0.35"/>',
+        f'<circle cx="16" cy="15.5" r="4.2" fill="{G}"/>',
+        f'<rect x="9" y="24" width="30" height="3" rx="1.5" fill="{WHITE}" opacity="0.35"/>',
+        f'<circle cx="32" cy="25.5" r="4.2" fill="{GOLD}"/>',
+        f'<rect x="9" y="34" width="30" height="3" rx="1.5" fill="{WHITE}" opacity="0.35"/>',
+        f'<circle cx="24" cy="35.5" r="4.2" fill="{G}"/>',
+    ],
+    "notes": [
+        f'<rect x="11" y="8" width="26" height="32" rx="4.5" fill="{G}"/>',
+        f'<rect x="11" y="8" width="26" height="6.5" rx="3.2" fill="{GD}"/>',
+        f'<path d="M16 21.5h16M16 27.5h16M16 33.5h10" stroke="{WHITE}" stroke-width="2.4" stroke-linecap="round" opacity="0.9"/>',
+    ],
+    "videos": [
+        f'<rect x="7" y="11" width="34" height="26" rx="6" fill="{DARK2}"/>',
+        f'<path d="M20 17.5l12 6.5-12 6.5z" fill="{G}"/>',
+        f'<g fill="{WHITE}" opacity="0.5"><rect x="10" y="14.5" width="2.6" height="4" rx="1.2"/><rect x="10" y="22" width="2.6" height="4" rx="1.2"/><rect x="10" y="29.5" width="2.6" height="4" rx="1.2"/></g>',
+    ],
+    "archive": [
+        f'<rect x="8" y="9" width="32" height="9" rx="3" fill="{G}"/>',
+        f'<path d="M10 18h28v14a6 6 0 0 1-6 6H16a6 6 0 0 1-6-6z" fill="{GD}"/>',
+        f'<rect x="19.5" y="24" width="9" height="7.5" rx="2" fill="{WHITE}" opacity="0.9"/>',
+        f'<rect x="19.5" y="24" width="9" height="3.6" rx="1.8" fill="{GOLD}"/>',
+    ],
+    "fonts": [
+        f'<path d="M8.5 38L19 12h3.4L33 38h-5.4l-2.4-7.6H16.6L14 38z" fill="{G}"/>',
+        f'<path d="M20.2 25h5.2l-2.6-8.6z" fill="{INK}" opacity="0.5"/>',
+        f'<path d="M32 38l6-14.5L44 38h-4.8l-1.5-3.7h-5.4L30.8 38z" fill="{GOLD}"/>',
+    ],
+    "services": [
+        f'<rect x="9" y="10" width="30" height="13" rx="4" fill="{G}"/>',
+        f'<rect x="9" y="25" width="30" height="13" rx="4" fill="{GD}"/>',
+        f'<circle cx="15" cy="16.5" r="2.3" fill="{WHITE}"/>',
+        f'<circle cx="15" cy="31.5" r="2.3" fill="{GOLD}"/>',
+        f'<path d="M21.5 16.5h11M21.5 31.5h11" stroke="{WHITE}" stroke-width="2.2" stroke-linecap="round" opacity="0.7"/>',
+    ],
+    "welcome": [
+        f'<circle cx="24" cy="24" r="14.5" fill="{G}"/>',
+        f'<path d="M24 12.5l2.7 7.6 7.6 2.7-7.6 2.7L24 33l-2.7-7.5-7.6-2.7 7.6-2.7z" fill="{GOLD}"/>',
+        f'<circle cx="33" cy="13.5" r="1.9" fill="{WHITE}" opacity="0.9"/>',
+        f'<circle cx="14.5" cy="33" r="1.4" fill="{WHITE}" opacity="0.7"/>',
+    ],
+    "simorgh": [
+        f'<path d="M24 6c-7 7-11 12-11 19a11 11 0 0 0 22 0c0-7-4-12-11-19z" fill="{G}"/>',
+        f'<path d="M24 15c-3 4-5 7-5 10a5 5 0 0 0 10 0c0-3-2-6-5-10z" fill="{GOLD}" opacity="0.92"/>',
+        f'<path d="M11.5 20.5c-2.5 2-4.3 5-4.3 8.3" stroke="{G}" stroke-width="2.6" fill="none" stroke-linecap="round"/>',
+        f'<path d="M36.5 20.5c2.5 2 4.3 5 4.3 8.3" stroke="{G}" stroke-width="2.6" fill="none" stroke-linecap="round"/>',
+    ],
     "search": [
         f'<circle cx="21" cy="21" r="11" fill="{G}"/>',
         f'<circle cx="21" cy="21" r="11" fill="none" stroke="#ffffff" stroke-width="1.2" opacity="0.25"/>',
@@ -387,7 +457,8 @@ TILED = {
     "recorder", "task-manager", "monitor", "security", "user", "power", "update",
     "installer", "repair", "restore", "reset", "backup", "boot", "accessibility",
     "developer", "about", "settings", "search", "trash", "star", "tag", "cloud",
-    "chat", "disk",
+    "chat", "disk", "store", "usb", "scan", "tweaks", "notes", "videos",
+    "archive", "fonts", "services", "welcome", "simorgh",
 }
 
 INDEX_APPS = {
@@ -412,6 +483,11 @@ INDEX_APPS = {
     "upload": "document-send", "check": "emblem-ok", "warning": "dialog-warning",
     "error": "dialog-error", "lock": "system-lock-screen", "wifi": "network-wireless",
     "battery": "battery-full", "bluetooth": "network-transmit", "volume": "audio-volume-high",
+    "store": "system-software-install", "usb": "drive-removable-media",
+    "scan": "scanner", "tweaks": "preferences-desktop",
+    "notes": "accessories-text-editor", "videos": "multimedia-video-player",
+    "archive": "application-x-compressed", "fonts": "font-x-generic",
+    "services": "system-run", "welcome": "help-faq", "simorgh": "applications-system",
 }
 
 

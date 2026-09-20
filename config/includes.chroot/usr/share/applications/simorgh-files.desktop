@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=
+Name[fa]=فایل‌ها
+Files
+Comment=File manager
+Exec=simorgh-files
+Icon=files
+Terminal=false
+Categories=System;Simorgh;
+Keywords=simorgh;

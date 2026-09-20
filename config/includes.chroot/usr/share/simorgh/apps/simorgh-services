@@ -1,0 +1,195 @@
+#!/usr/bin/env python3
+"""SimorghOS — Services: manage session autostart entries and user systemd
+units (enable/disable, start/stop, status) with a searchable list."""
+import os
+import subprocess
+import sys
+
+sys.path.insert(0, "/usr/share/simorgh")
+from gi.repository import Gtk, GLib  # noqa: E402
+from ui import card, header, init, label, run_cmd  # noqa: E402
+
+AUTOSTART = os.path.expanduser("~/.config/autostart")
+
+
+def sh(argv, timeout=15):
+    try:
+        return subprocess.run(argv, capture_output=True, text=True,
+                              timeout=timeout).stdout.strip()
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+class Services:
+    def __init__(self):
+        self.win = init("Services", 820, 640)
+        header(self.win, "Services", "Autostart & user units", icon="services")
+        self.stack = Gtk.Stack()
+        self.win.add(self.stack)
+        self.stack.add_named(self.page_auto(), "auto")
+        self.stack.add_named(self.page_units(), "units")
+        self.win.show_all()
+        self._build_tabs()
+
+    def _build_tabs(self):
+        # tabs are added into each page header area
+        pass
+
+    def page_auto(self):
+        col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        col.set_margin_start(12); col.set_margin_end(12)
+        col.set_margin_top(10); col.set_margin_bottom(10)
+        top = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        self.tabs_a = Gtk.ToggleButton(label="Autostart")
+        self.tabs_a.set_active(True)
+        self.tabs_u = Gtk.ToggleButton(label="Systemd user units")
+        self.tabs_u.set_group(self.tabs_a)
+        self.tabs_a.connect("toggled", lambda b: self.stack.set_visible_child_name("auto"))
+        self.tabs_u.connect("toggled", lambda b: self.stack.set_visible_child_name("units"))
+        top.pack_start(self.tabs_a, False, False, 0)
+        top.pack_start(self.tabs_u, False, False, 0)
+        self.s_auto = Gtk.SearchEntry(placeholder_text="Search autostart…")
+        self.s_auto.connect("search-changed", lambda _s: self.refresh_auto())
+        top.pack_start(self.s_auto, True, True, 0)
+        col.pack_start(top, False, False, 0)
+        self.auto_info = label("Programs that start when you log in.", cls="dim")
+        col.pack_start(self.auto_info, False, False, 0)
+        sw = Gtk.ScrolledWindow()
+        self.auto_lst = Gtk.ListBox()
+        self.auto_lst.set_selection_mode(Gtk.SelectionMode.NONE)
+        sw.add(self.auto_lst)
+        col.pack_start(sw, True, True, 0)
+        return col
+
+    def page_units(self):
+        col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        col.set_margin_start(12); col.set_margin_end(12)
+        col.set_margin_top(10); col.set_margin_bottom(10)
+        top = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        col.pack_start(top, False, False, 0)
+        self.s_unit = Gtk.SearchEntry(placeholder_text="Search units…")
+        self.s_unit.connect("search-changed", lambda _s: self.refresh_units())
+        top.pack_start(self.s_unit, True, True, 0)
+        sw = Gtk.ScrolledWindow()
+        self.unit_lst = Gtk.ListBox()
+        self.unit_lst.set_selection_mode(Gtk.SelectionMode.NONE)
+        sw.add(self.unit_lst)
+        col.pack_start(sw, True, True, 0)
+        return col
+
+    # ── autostart ──────────────────────────────────────────────────────
+    def auto_files(self):
+        out = []
+        for d in (AUTOSTART, "/etc/xdg/autostart"):
+            if os.path.isdir(d):
+                for f in sorted(os.listdir(d)):
+                    if f.endswith(".desktop"):
+                        out.append((d, f))
+        return out
+
+    def refresh_auto(self, _a=None):
+        for c in self.auto_lst.get_children():
+            self.auto_lst.remove(c)
+        q = self.s_auto.get_text().lower()
+        for d, f in self.auto_files():
+            path = os.path.join(d, f)
+            if q and q not in (f + self._field(path, "Name")).lower():
+                continue
+            row = Gtk.ListBoxRow()
+            row.get_style_context().add_class("store-row")
+            box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            box.set_margin_start(8); box.set_margin_top(6); box.set_margin_bottom(6)
+            box.pack_start(label(self._field(path, "Name") or f), True, True, 0)
+            on = self._enabled(d, f)
+            sw = Gtk.Switch()
+            sw.set_active(on)
+            sw.connect("state-set", self.toggle_auto, d, f, path)
+            box.pack_start(sw, False, False, 0)
+            row.add(box)
+            self.auto_lst.add(row)
+        if not self.auto_files():
+            self.auto_lst.add(Gtk.ListBoxRow().add(
+                label("No autostart entries.", cls="dim")))
+        self.auto_lst.show_all()
+        return False
+
+    def _field(self, path, key):
+        try:
+            for line in open(path, encoding="utf-8"):
+                if line.startswith(key + "="):
+                    return line.split("=", 1)[1].strip()
+        except OSError:
+            pass
+        return ""
+
+    def _enabled(self, d, f):
+        if d == "/etc/xdg/autostart":
+            if os.path.exists(os.path.join(AUTOSTART, f)):
+                return self._enabled(AUTOSTART, f)
+            return "true" in self._field(os.path.join(d, f), "X-GNOME-Autostart-enabled").lower()
+        return "true" in self._field(os.path.join(d, f), "X-GNOME-Autostart-enabled").lower()
+
+    def toggle_auto(self, sw, d, f, path, _user=True):
+        want = "true" if sw.get_active() else "false"
+        os.makedirs(AUTOSTART, exist_ok=True)
+        dst = os.path.join(AUTOSTART, f)
+        try:
+            lines = open(path, encoding="utf-8").read().splitlines()
+            if any(l.startswith("X-GNOME-Autostart-enabled=") for l in lines):
+                lines = [l if not l.startswith("X-GNOME-Autostart-enabled=")
+                         else f"X-GNOME-Autostart-enabled={want}" for l in lines]
+            else:
+                lines.append(f"X-GNOME-Autostart-enabled={want}")
+            open(dst, "w", encoding="utf-8").write("\n".join(lines) + "\n")
+        except OSError:
+            return False
+        return True
+
+    # ── user units ─────────────────────────────────────────────────────
+    def refresh_units(self, _a=None):
+        for c in self.unit_lst.get_children():
+            self.unit_lst.remove(c)
+        q = self.s_unit.get_text().lower()
+        out = sh(["systemctl", "--user", "list-units", "--type=service", "--all",
+                  "--no-legend", "--plain"])
+        units = []
+        for line in out.splitlines():
+            p = line.split()
+            if len(p) >= 4:
+                units.append((p[0], p[3]))
+        for name, state in units:
+            if q and q not in name.lower():
+                continue
+            row = Gtk.ListBoxRow()
+            row.get_style_context().add_class("store-row")
+            box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            box.set_margin_start(8); box.set_margin_top(6); box.set_margin_bottom(6)
+            box.pack_start(label(name), True, True, 0)
+            cls = "state-ok" if state == "active" else \
+                ("state-error" if state in ("failed", "activating") else "dim")
+            box.pack_start(label(state, cls=cls), False, False, 0)
+            for tip, act, arg in (("Start", "start", state),
+                                  ("Stop", "stop", state),
+                                  ("Restart", "restart", state)):
+                b = Gtk.Button(label=tip)
+                b.set_sensitive((act != "stop" and state == "active") or
+                                (act == "stop" and state == "active") or
+                                (act == "restart" and state == "active"))
+                b.connect("clicked", self.unit_action, name, act)
+                box.pack_start(b, False, False, 0)
+            row.add(box)
+            self.unit_lst.add(row)
+        if not units:
+            self.unit_lst.add(Gtk.ListBoxRow().add(
+                label("No user services.", cls="dim")))
+        self.unit_lst.show_all()
+        return False
+
+    def unit_action(self, _b, name, act):
+        run_cmd(["systemctl", "--user", act, name])
+        GLib.timeout_add(800, self.refresh_units)
+
+
+if __name__ == "__main__":
+    Services()
+    Gtk.main()

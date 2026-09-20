@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=
+Name[fa]=دانلودها
+Downloads
+Comment=Download manager
+Exec=simorgh-download
+Icon=download
+Terminal=false
+Categories=System;Simorgh;
+Keywords=simorgh;

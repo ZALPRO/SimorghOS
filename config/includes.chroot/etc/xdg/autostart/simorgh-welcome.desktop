@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Simorgh Welcome
+Comment=First-boot setup wizard
+Exec=simorgh-welcome
+X-GNOME-Autostart-enabled=true
+X-GNOME-Autostart-Delay=8
+Terminal=false

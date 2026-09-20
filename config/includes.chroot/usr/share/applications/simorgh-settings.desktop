@@ -1,12 +1,11 @@
 [Desktop Entry]
 Type=Application
-Name=Settings
+Name=
 Name[fa]=تنظیمات
-Comment=SimorghOS system settings
-Comment[fa]=تنظیمات سیستم سیمرغ‌اواس
-Exec=sh -c 'exec /usr/share/simorgh/apps/simorgh-settings'
-Icon=preferences-system
+Settings
+Comment=System settings
+Exec=simorgh-settings
+Icon=settings
 Terminal=false
-Categories=Settings;System;
-Keywords=settings;preferences;config;
-X-Simorgh-Core=true
+Categories=System;Simorgh;
+Keywords=simorgh;

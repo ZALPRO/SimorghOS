@@ -113,7 +113,7 @@ class Upd:
     def finished(self, ok):
         self.spin.stop()
         self.progress.set_fraction(1.0)
-        self.status.set_text("all updates installed ✔" if ok else "update failed — see terminal")
+        self.status.set_text("all updates installed" if ok else "update failed — see terminal")
         self.check_reboot()
 
     def check_reboot(self):

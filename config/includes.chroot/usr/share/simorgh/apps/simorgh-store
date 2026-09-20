@@ -1,321 +1,220 @@
 #!/usr/bin/env python3
-"""simorgh-store — SimorghOS app store.
-
-A single, professional place to search and install anything:
-  * Debian (apt) packages
-  * Flathub (flatpak) apps
-
-Search, category filters, a featured banner, and a card grid with a real
-install state machine (idle → installing → installed / failed) so the user
-can add any application to the system.
-"""
+"""SimorghOS — Store: unified app store (Simorgh apps, Flatpak/Flathub, APT)
+with search, installed-state, progress and result feedback."""
 import os
+import subprocess
 import sys
 
 sys.path.insert(0, "/usr/share/simorgh")
-import ui  # noqa: E402
+from gi.repository import Gtk, GLib  # noqa: E402
+from ui import card, header, init, label, run_cmd, pkexec  # noqa: E402
 
-from gi.repository import Gtk  # noqa: E402
+SIMGH = "/usr/share/simorgh/apps"
 
-# ── curated catalog ────────────────────────────────────────────────────────
-# (id, name, desc, icon, source, pkg, category)
-CAT = [
-    ("all", "همه"), ("system", "سیستم"), ("productivity", "تولیدکنندگی"),
-    ("media", "رسانه"), ("internet", "اینترنت"),
-    ("development", "برنامه‌نویسی"), ("graphics", "تصویر"), ("utilities", "ابزارها"),
-]
 
-CATALOG = [
-    ("brave", "Brave Browser", "وب‌گشتگر سریع با بلاکر تبلیغات و ردیاب‌ها.", "browser", "apt", "brave-browser", "internet"),
-    ("firefox", "Mozilla Firefox", "وب‌گشتگر سریع و امن با محافظت از حریم خصوصی.", "browser", "apt", "firefox", "internet"),
-    ("thunderbird", "Thunderbird", "مشترای ایمیل و تقویم از موزیلا.", "mail", "apt", "thunderbird", "internet"),
-    ("vivaldi", "Vivaldi", "مرورگر قدرتمند و کاملاً شخصی‌سازی‌پذیر.", "browser", "flathub", "com.vivaldi.Vivaldi", "internet"),
-    ("telegram", "Telegram", "پیام‌رسان تلگرام.", "chat", "flathub", "org.telegram.desktop", "internet"),
-    ("signal", "Signal", "پیام‌رسان امن.", "chat", "flathub", "org.signal.desktop", "internet"),
-    ("element", "Element", "کلاینت Matrix برای چت و تماس.", "chat", "flathub", "io.element", "internet"),
-    ("wireshark", "Wireshark", "تحلیل ترافیک شبکه.", "monitor", "flathub", "org.wireshark.Wireshark", "internet"),
-    ("filezilla", "FileZilla", "انتقال فایل FTP/SFTP.", "files", "apt", "filezilla", "internet"),
-    ("transmission", "Transmission", "کلاینت بیت‌تورنت.", "cloud", "apt", "transmission-gtk", "internet"),
-    ("libreoffice", "LibreOffice", "سریهٔ آفیس: کلم، کلس، ایمی و…", "text-editor", "apt", "libreoffice", "productivity"),
-    ("onlyoffice", "ONLYOFFICE", "سریهٔ آفیس سازگار با Office.", "text-editor", "flathub", "ru.onlyoffice.desktopeditors", "productivity"),
-    ("calibre", "Calibre", "مدیریت کتاب الکترونیکی.", "pdf", "apt", "calibre", "productivity"),
-    ("joplin", "Joplin", "یادداشت‌برداری و سازمان‌دهی.", "text-editor", "flathub", "md.joplin.Joplin", "productivity"),
-    ("gimp", "GIMP", "تدوین و ویرایش تصویر حرفه‌ای.", "photos", "apt", "gimp", "graphics"),
-    ("inkscape", "Inkscape", "طراحی برداری (SVG) متن‌باز.", "photos", "apt", "inkscape", "graphics"),
-    ("krita", "Krita", "نقاشی دیجیتال و کمیک.", "photos", "flathub", "org.kde.krita", "graphics"),
-    ("blender", "Blender", "مدل‌سازی سه‌بعدی و انیمیشن.", "video", "apt", "blender", "graphics"),
-    ("vlc", "VLC", "پخش‌کنندهٔ رسانهٔ همه‌چیز.", "video", "apt", "vlc", "media"),
-    ("kodi", "Kodi", "مرکز رسانه و تلویزیون خانگی.", "video", "apt", "kodi", "media"),
-    ("obs", "OBS Studio", "استریم و ضبط صفحه.", "recorder", "flathub", "com.obsproject.Studio", "media"),
-    ("kdenlive", "Kdenlive", "تدوین ویرایش ویدیو.", "video", "flathub", "org.kde.kdenlive", "media"),
-    ("audacity", "Audacity", "تدوین صدا.", "music", "flathub", "org.audacityteam.Audacity", "media"),
-    ("audacious", "Audacious", "پخش‌کنندهٔ سبک.", "music", "apt", "audacious", "media"),
-    ("vscode", "VS Code", "ویرایشگر و محیط برنامه‌نویسی.", "developer", "apt", "code", "development"),
-    ("vscodium", "VSCodium", "VS Code بدون ردیابی (متن‌باز).", "developer", "flathub", "com.vscodium.codium", "development"),
-    ("gedit", "gedit", "ویرایشگر متن ساده.", "text-editor", "apt", "gedit", "development"),
-    ("python3", "Python 3", "زبان برنامه‌نویسی پایتون.", "developer", "apt", "python3", "development"),
-    ("git", "Git", "سیستم کنترل نسخه.", "developer", "apt", "git", "development"),
-    ("nodejs", "Node.js", "محیط اجرای جاوااسکریپت.", "developer", "apt", "nodejs", "development"),
-    ("golang", "Go", "زبان برنامه‌نویسی گو.", "developer", "apt", "golang", "development"),
-    ("rustc", "Rust", "زبان برنامه‌نویسی راست.", "developer", "apt", "rustc", "development"),
-    ("build-essential", "Build tools", "زنجیرهٔ کامپایلر C/C++.", "developer", "apt", "build-essential", "development"),
-    ("timeshift", "Timeshift", "نقطهٔ بازگشت و پشتیبان سیستم.", "backup", "apt", "timeshift", "system"),
-    ("gufw", "GUFW", "مدیریت آتش‌دیر (firewall).", "security", "apt", "gufw", "system"),
-    ("gnome-disk-utility", "Discus", "مدیریت دیسک و درایو.", "disk", "apt", "gnome-disk-utility", "system"),
-    ("gparted", "GParted", "تقسیم‌بندی درایو.", "disk", "apt", "gparted", "system"),
-    ("stacer", "Stacer", "بهینه‌سازی و نظارت سیستم.", "settings", "flathub", "com.stacer.app", "system"),
-    ("popsicle", "Popsicle", "سازندهٔ USB بوت‌پذیر.", "installer", "flathub", "org.system76.Popsicle", "system"),
-    ("htop", "htop", "مانیتور سیستم در ترمینال.", "monitor", "apt", "htop", "utilities"),
-    ("btop", "btop", "مانیتور سیستم زیبا در ترمینال.", "monitor", "apt", "btop", "utilities"),
-    ("neofetch", "Neofetch", "نمایش اطلاعات سیستم.", "terminal", "apt", "neofetch", "utilities"),
-    ("simple-scan", "Simple Scan", "اسکنر اسکنر و کپی.", "screenshot", "flathub", "org.gnome.Skan", "utilities"),
-    ("debtags", "Debtags", "برچسب‌گذاری فایل‌ها.", "tag", "apt", "debtags", "utilities"),
-]
-
-FEATURED = "brave"
-SRC_LABEL = {"apt": "Debian", "flathub": "Flathub"}
+def sh(argv, timeout=25):
+    try:
+        return subprocess.run(argv, capture_output=True, text=True,
+                              timeout=timeout).stdout.strip()
+    except Exception:  # noqa: BLE001
+        return ""
 
 
 class Store:
     def __init__(self):
-        self.app = ui.init("Simorgh Store", 1040, 680)
-        self.app.get_style_context().add_class("simorgh")
-        self.installed = set()
-        self.state = {}
-        self.buttons = {}
-        self.cat = "all"
-        self.query = ""
-        hb = ui.header(self.app, "Simorgh Store", "برنامه‌ها و ابزارها را نصب کنید", "system-software-install")
-        self._build(hb)
-        self.refresh_installed()
-        self.app.show_all()
+        self.win = init("Store", 920, 680)
+        header(self.win, "Store", "Install anything — apt · flatpak · simorgh", icon="store")
+        self.tab = "Simorgh"
+        self.flatpak, self.apt = {}, {}
+        self.spinners, self.lists = {}, {}
+        self.build_ui()
+        self.refresh()
+        self.win.show_all()
 
-    # ── layout ────────────────────────────────────────────────────────────
-    def _build(self, hb):
-        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
-        self.app.add(root)
+    def build_ui(self):
+        body = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        self.win.add(body)
+        bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        bar.set_margin_start(10); bar.set_margin_end(10); bar.set_margin_top(8)
+        group = None
+        for name in ("Simorgh", "Flatpak", "APT"):
+            b = Gtk.ToggleButton(label=name)
+            if group is None:
+                b.set_active(name == self.tab)
+            else:
+                b.set_group(group)
+            group = b
+            b.connect("toggled", self.on_tab, name)
+            bar.pack_start(b, False, False, 0)
+        self.search = Gtk.SearchEntry(placeholder_text="Search apps, packages…")
+        self.search.connect("search-changed", lambda _s: self.refresh())
+        bar.pack_start(self.search, True, True, 0)
+        body.pack_start(bar, False, False, 0)
 
-        sw = Gtk.SearchEntry()
-        sw.set_placeholder_text("جست‌وجو در برنامه‌ها…")
-        sw.connect("search-changed", self._on_search)
-        hb.pack_end(sw)
+        self.stack = Gtk.Stack()
+        self.stack.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
+        for name in ("Simorgh", "Flatpak", "APT"):
+            outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+            sp = Gtk.Spinner()
+            sp.set_halign(Gtk.Align.CENTER)
+            sp.set_valign(Gtk.Align.CENTER)
+            sp.start()
+            self.spinners[name] = sp
+            outer.pack_start(sp, True, True, 0)
+            sw = Gtk.ScrolledWindow()
+            sw.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+            self.lists[name] = Gtk.ListBox()
+            self.lists[name].set_selection_mode(Gtk.SelectionMode.NONE)
+            sw.add(self.lists[name])
+            outer.pack_start(sw, True, True, 0)
+            self.stack.add_named(outer, name)
+        body.pack_start(self.stack, True, True, 0)
 
-        root.pack_start(self._featured(), False, False, 0)
-        root.pack_start(self._pills(), False, False, 0)
+        self.status = label("Loading catalogue…", cls="dim")
+        self.status.set_margin_bottom(8)
+        body.pack_start(self.status, False, False, 0)
 
-        sc = Gtk.ScrolledWindow()
-        sc.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-        root.pack_start(sc, True, True, 0)
-        self.flow = Gtk.FlowBox()
-        self.flow.set_selection_mode(Gtk.SelectionMode.NONE)
-        self.flow.set_min_children_per_line(3)
-        self.flow.set_max_children_per_line(5)
-        self.flow.set_column_spacing(12)
-        self.flow.set_row_spacing(12)
-        self.flow.set_homogeneous(True)
-        self.flow.set_margin_start(14)
-        self.flow.set_margin_end(14)
-        self.flow.set_margin_top(12)
-        self.flow.set_margin_bottom(14)
-        sc.add(self.flow)
+    def on_tab(self, btn, name):
+        if btn.get_active():
+            self.tab = name
+            self.stack.set_visible_child_name(name)
+            self.refresh()
 
-    def _featured(self):
-        b = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=16)
-        for k, v in (("margin-start", 16), ("margin-end", 16), ("margin-top", 12), ("margin-bottom", 4)):
-            setattr(b, "set_" + k, v)
-        b.get_style_context().add_class("simorgh-card")
-        f = next((r for r in CATALOG if r[0] == FEATURED), CATALOG[0])
-        img = Gtk.Image.new_from_icon_name(f[3], Gtk.IconSize.DIALOG)
-        info = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
-        name = Gtk.Label(label=f"پیشنهاد ویژه — {f[1]}", xalign=0)
-        name.get_style_context().add_class("title")
-        desc = Gtk.Label(label=f[2], xalign=0, wrap=True)
-        desc.get_style_context().add_class("subtitle")
-        desc.set_max_width_chars(70)
-        info.pack_start(name, False, False, 0)
-        info.pack_start(desc, False, False, 0)
-        btn = Gtk.Button(label="نصب")
-        btn.get_style_context().add_class("suggested-action")
-        btn.connect("clicked", lambda *_: self.install(FEATURED))
-        self.buttons.setdefault(FEATURED, []).append(btn)
-        info.pack_end(btn, False, False, 0)
-        b.pack_start(img, False, False, 0)
-        b.pack_start(info, True, True, 0)
-        return b
-
-    def _pills(self):
-        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        for k, v in (("margin-start", 16), ("margin-end", 16), ("margin-top", 10), ("margin-bottom", 10)):
-            setattr(box, "set_" + k, v)
-        self.pill_btns = {}
-        for key, fa in CAT:
-            btn = Gtk.Button(label=fa)
-            btn.set_relief(Gtk.ReliefStyle.NONE)
-            btn.get_style_context().add_class("pill")
-            if key == self.cat:
-                btn.get_style_context().add_class("pill-active")
-            btn.connect("clicked", lambda w, k=key: self._set_cat(k))
-            box.pack_start(btn, False, False, 0)
-            self.pill_btns[key] = btn
-        return box
-
-    def _set_cat(self, key):
-        self.cat = key
-        for k, b in self.pill_btns.items():
-            b.get_style_context().remove_class("pill-active")
-            if k == key:
-                b.get_style_context().add_class("pill-active")
-        self.populate()
-
-    def _on_search(self, entry):
-        self.query = entry.get_text().strip().lower()
-        self.populate()
-
-    # ── grid ───────────────────────────────────────────────────────────────
-    def populate(self):
-        for c in self.flow.get_children():
-            self.flow.remove(c)
-        # keep only the persistent featured banner button; cards re-register below
-        feat = self.buttons.pop(FEATURED, [])
-        self.buttons = {FEATURED: feat}
-        for row in CATALOG:
-            rid, name, desc, icon, source, pkg, cat = row
-            if self.cat != "all" and cat != self.cat:
-                continue
-            if self.query and self.query not in (name + " " + desc + " " + pkg).lower():
-                continue
-            self.flow.add(self._card(rid, name, desc, icon, source))
-        self.flow.show_all()
-
-    def _card(self, rid, name, desc, icon, source):
-        card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        card.get_style_context().add_class("store-card")
-        card.set_size_request(190, -1)
-
-        top = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
-        img = Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.DIALOG)
-        top.pack_start(img, False, False, 0)
-        src = Gtk.Label(label=SRC_LABEL.get(source, source), xalign=0)
-        src.get_style_context().add_class("store-src")
-        top.pack_start(src, False, False, 0)
-        card.pack_start(top, False, False, 0)
-
-        nm = Gtk.Label(label=name, xalign=0, wrap=True)
-        nm.get_style_context().add_class("store-name")
-        nm.set_max_width_chars(26)
-        card.pack_start(nm, False, False, 0)
-
-        de = Gtk.Label(label=desc, xalign=0, wrap=True)
-        de.get_style_context().add_class("store-desc")
-        de.set_max_width_chars(44)
-        card.pack_start(de, True, True, 0)
-
-        btn = Gtk.Button(label="نصب")
-        btn.connect("clicked", lambda w, r=rid: self.install(r))
-        self.buttons.setdefault(rid, []).append(btn)
-        card.pack_start(btn, False, False, 0)
-        self._style(rid)
-        return card
-
-    # ── install state machine ──────────────────────────────────────────────
-    def _style(self, rid):
-        st = self.state.get(rid, "idle")
-        for btn in self.buttons.get(rid, []):
-            card = btn.get_parent()
-            ctx = btn.get_style_context()
-            for c in ("suggested-action", "simorgh-success", "simorgh-loading",
-                      "state-error", "store-btn"):
-                ctx.remove_class(c)
-            if card is not None:
-                for c in ("simorgh-loading", "simorgh-success", "state-error"):
-                    card.get_style_context().remove_class(c)
-            ctx.add_class("store-btn")
-            if st == "idle":
-                if rid in self.installed:
-                    btn.set_label("نصب شده")
-                    btn.set_sensitive(False)
-                    btn.get_style_context().add_class("simorgh-success")
-                    if card is not None:
-                        card.get_style_context().add_class("simorgh-success")
-                else:
-                    btn.set_label("نصب")
-                    btn.set_sensitive(True)
-                    btn.get_style_context().add_class("suggested-action")
-            elif st == "working":
-                btn.set_label("در حال نصب…")
-                btn.set_sensitive(False)
-                btn.get_style_context().add_class("simorgh-loading")
-                if card is not None:
-                    card.get_style_context().add_class("simorgh-loading")
-            elif st == "done":
-                self.installed.add(rid)
-                btn.set_label("نصب شده ✓")
-                btn.set_sensitive(False)
-                btn.get_style_context().add_class("simorgh-success")
-                if card is not None:
-                    card.get_style_context().add_class("simorgh-success")
-            elif st == "fail":
-                btn.set_label("تلاش دوباره")
-                btn.set_sensitive(True)
-                btn.get_style_context().add_class("state-error")
-                if card is not None:
-                    card.get_style_context().add_class("state-error")
-
-    def refresh_installed(self):
-        import subprocess, threading
-
-        def work():
-            apt, flat = set(), set()
-            try:
-                out = subprocess.run(["dpkg-query", "-W", "-f", "${Package}\n"],
-                                     capture_output=True, text=True).stdout
-                apt = set(out.split())
-            except Exception:
-                pass
-            try:
-                out = subprocess.run(["flatpak", "list", "--app", "--columns=application"],
-                                     capture_output=True, text=True).stdout
-                flat = {x.strip() for x in out.splitlines() if x.strip()}
-            except Exception:
-                pass
-            from gi.repository import GLib
-            GLib.idle_add(self._installed_ready, apt, flat)
-
-        threading.Thread(target=work, daemon=True).start()
-
-    def _installed_ready(self, apt, flat):
-        for rid, name, desc, icon, source, pkg, cat in CATALOG:
-            if source == "apt" and pkg in apt:
-                self.installed.add(rid)
-            elif source == "flathub" and pkg in flat:
-                self.installed.add(rid)
-        self.populate()
-
-    def install(self, rid):
-        row = next((r for r in CATALOG if r[0] == rid), None)
-        if not row or self.state.get(rid) == "working":
-            return
-        self.state[rid] = "working"
-        self._style(rid)
-        source, pkg = row[4], row[5]
-        if source == "apt":
-            ui.pkexec(f"DEBIAN_FRONTEND=noninteractive apt-get install -y {pkg}",
-                      done=lambda ok, out, r=rid: self._done(r, ok))
-        elif source == "flathub":
-            ui.run_cmd(["flatpak", "install", "-y", "flathub", pkg],
-                       done=lambda ok, out, r=rid: self._done(r, ok))
+    def refresh(self):
+        if self.tab == "Simorgh":
+            self.fill_simorgh()
+        elif self.tab == "Flatpak":
+            if self.flatpak:
+                self.fill_generic("Flatpak", self.flatpak.items(),
+                                  lambda k, v: (k, v[1], ["flatpak", "install", "-y", v[0]]),
+                                  "utilities-multimedia")
+            else:
+                run_cmd(["flatpak", "search", "--columns=application,name,description"],
+                        self._done_flatpak)
         else:
-            self._done(rid, True)
+            if self.apt:
+                self.fill_generic("APT", self.apt.items(),
+                                  lambda k, v: (k, v, ["pkexec", "apt", "install", "-y", k]),
+                                  "application-x-executable")
+            else:
+                run_cmd(["apt", "search", ".*"], self._done_apt)
 
-    def _done(self, rid, ok):
-        self.state[rid] = "done" if ok else "fail"
-        self._style(rid)
+    def _done_flatpak(self, ok, out):
+        def do():
+            self.flatpak.clear()
+            for line in out.splitlines():
+                parts = [x.strip() for x in line.split("\t")]
+                if len(parts) >= 3 and "/" in parts[0]:
+                    self.flatpak[parts[1]] = (parts[0], parts[2])
+            if self.tab == "Flatpak":
+                self.fill_generic("Flatpak", self.flatpak.items(),
+                                  lambda k, v: (k, v[1], ["flatpak", "install", "-y", v[0]]),
+                                  "utilities-multimedia")
+            return False
+        GLib.idle_add(do)
 
+    def _done_apt(self, ok, out):
+        def do():
+            self.apt.clear()
+            for line in out.splitlines():
+                line = line.strip()
+                if ":" in line:
+                    name, desc = line.split(":", 1)
+                    self.apt[name.strip()] = desc.strip()
+            if self.tab == "APT":
+                self.fill_generic("APT", self.apt.items(),
+                                  lambda k, v: (k, v, ["pkexec", "apt", "install", "-y", k]),
+                                  "application-x-executable")
+            return False
+        GLib.idle_add(do)
 
-def main():
-    Store()
-    Gtk.main()
+    def fill_simorgh(self):
+        for c in self.lists["Simorgh"].get_children():
+            self.lists["Simorgh"].remove(c)
+        self.spinners["Simorgh"].stop()
+        q = self.search.get_text().lower()
+        n = 0
+        for f in sorted(os.listdir(SIMGH)):
+            p = f"{SIMGH}/{f}"
+            if not os.path.isfile(p):
+                continue
+            if q and q not in (f + self._doc(p)).lower():
+                continue
+            self._row("Simorgh", "applications-system", f, self._doc(p),
+                      None if os.path.exists(f"/usr/bin/{f}")
+                      else ["pkexec", "ln", "-sf", p, f"/usr/bin/{f}"])
+            n += 1
+        self.lists["Simorgh"].show_all()
+        self.status.set_text(f"Simorgh — {n} core apps")
+
+    def _doc(self, path):
+        try:
+            with open(path, encoding="utf-8") as fh:
+                for line in fh:
+                    if line.startswith('"""'):
+                        return line.strip().strip('"').replace("SimorghOS — ", "")[:90]
+        except OSError:
+            pass
+        return "Simorgh app"
+
+    def fill_generic(self, name, items, mk, icon):
+        for c in self.lists[name].get_children():
+            self.lists[name].remove(c)
+        self.spinners[name].stop()
+        q = self.search.get_text().lower()
+        n = 0
+        for k_, v_ in items:
+            k, desc, cmd = mk(k_, v_)
+            if q and q not in (k + desc).lower():
+                continue
+            self._row(name, icon, k, desc, cmd)
+            n += 1
+        self.lists[name].show_all()
+        self.status.set_text(f"{name} — {n} results")
+
+    def _row(self, tab, icon, name, desc, cmd):
+        row = Gtk.ListBoxRow()
+        row.get_style_context().add_class("store-row")
+        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        box.set_margin_top(8); box.set_margin_bottom(8)
+        box.set_margin_start(12); box.set_margin_end(8)
+        box.pack_start(Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.LARGE_TOOLBAR),
+                       False, False, 0)
+        col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        col.pack_start(label(name, bold=True), False, False, 0)
+        col.pack_start(label(desc, cls="dim"), False, False, 0)
+        box.pack_start(col, True, True, 0)
+        if cmd is None:
+            box.pack_start(label("Installed", cls="state-ok"), False, False, 0)
+        else:
+            b = Gtk.Button(label="Install")
+            b.connect("clicked", lambda _b, c=cmd, n=name: self.install(c, n))
+            box.pack_start(b, False, False, 0)
+        row.add(box)
+        self.lists[tab].add(row)
+
+    def install(self, cmd, name):
+        self.status.set_text(f"Installing {name}… (this can take a minute)")
+        self.status.get_style_context().add_class("state-warn")
+        if cmd[0] == "pkexec":
+            pkexec(" ".join(cmd[1:]), self._done(name))
+        else:
+            run_cmd(cmd, self._done(name))
+
+    def _done(self, name):
+        def cb(ok, out):
+            def do():
+                self.status.set_text(f"{'Installed' if ok else 'Error'}: {name}")
+                self.status.get_style_context().remove_class("state-warn")
+                self.status.get_style_context().add_class(
+                    "state-ok" if ok else "state-error")
+                if ok:
+                    GLib.timeout_add(500, self.refresh)
+                return False
+            GLib.idle_add(do)
+        return cb
 
 
 if __name__ == "__main__":
-    main()
+    Store()
+    Gtk.main()

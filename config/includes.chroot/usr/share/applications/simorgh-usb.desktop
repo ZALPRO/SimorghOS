@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=
+Name[fa]=سازندهٔ USB
+USB Creator
+Comment=Write ISO to USB
+Exec=simorgh-usb
+Icon=usb
+Terminal=false
+Categories=System;Simorgh;
+Keywords=simorgh;

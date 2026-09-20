@@ -1,0 +1,200 @@
+#!/usr/bin/env python3
+"""SimorghOS — Download: aria2-powered download manager (queue, parallel
+connections, progress bars, retry, open folder)."""
+import json
+import os
+import subprocess
+import sys
+
+sys.path.insert(0, "/usr/share/simorgh")
+from gi.repository import Gtk, GLib  # noqa: E402
+from ui import card, header, init, label, run_cmd  # noqa: E402
+
+DL = os.path.expanduser("~/Downloads")
+CONF = os.path.expanduser("~/.config/simorgh/aria2.conf")
+CTL = ["aria2c", "--conf-path=" + CONF]
+
+
+def ensure_conf():
+    os.makedirs(os.path.dirname(CONF), exist_ok=True)
+    if not os.path.exists(CONF):
+        open(CONF, "w").write(
+            "dir=" + DL + "\n"
+            "split=8\n"
+            "min-split-size=4M\n"
+            "max-tries=3\n"
+            "retry-wait=2\n"
+            "continue=true\n"
+            "file-allocation=none\n"
+        )
+
+
+def active():
+    try:
+        out = subprocess.run(["aria2c", "--conf-path=" + CONF, "--show-files"],
+                             capture_output=True, text=True, timeout=10).stdout
+        return [l for l in out.splitlines() if l.startswith("URI")]
+    except Exception:  # noqa: BLE001
+        return []
+
+
+class Download:
+    def __init__(self):
+        ensure_conf()
+        self.win = init("Downloads", 780, 640)
+        header(self.win, "Downloads", icon="download")
+        body = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        body.set_margin_start(12); body.set_margin_end(12)
+        body.set_margin_top(10); body.set_margin_bottom(10)
+        self.win.add(body)
+
+        c = card()
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        self.url = Gtk.Entry(placeholder_text="Paste a URL and press Add…")
+        row.pack_start(self.url, True, True, 0)
+        add = Gtk.Button(label="Add")
+        add.get_style_context().add_class("suggested-action")
+        add.connect("clicked", self.add_url)
+        row.pack_start(add, False, False, 0)
+        paste = Gtk.Button(label="Paste")
+        paste.connect("clicked", self.paste_url)
+        row.pack_start(paste, False, False, 0)
+        c.pack_start(row, False, False, 0)
+        body.pack_start(c, False, False, 0)
+
+        bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        body.pack_start(bar, False, False, 0)
+        self.queue_b = Gtk.Button(label="Start queue")
+        self.queue_b.connect("clicked", self.start_queue)
+        bar.pack_start(self.queue_b, False, False, 0)
+        self.stop_b = Gtk.Button(label="Stop all")
+        self.stop_b.connect("clicked", self.stop_all)
+        bar.pack_start(self.stop_b, False, False, 0)
+        self.open_b = Gtk.Button(label="Open Downloads")
+        self.open_b.connect("clicked", lambda _b: run_cmd(["thunar", DL]))
+        bar.pack_start(self.open_b, False, False, 0)
+        self.refresh_b = Gtk.Button(label="Refresh")
+        self.refresh_b.connect("clicked", lambda _b: self.refresh_list())
+        bar.pack_start(self.refresh_b, False, False, 0)
+
+        sw = Gtk.ScrolledWindow()
+        sw.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        self.lst = Gtk.ListBox()
+        self.lst.set_selection_mode(Gtk.SelectionMode.NONE)
+        sw.add(self.lst)
+        body.pack_start(sw, True, True, 0)
+        self.status = label("Ready — downloads go to ~/Downloads", cls="dim")
+        body.pack_start(self.status, False, False, 0)
+        self.win.show_all()
+        self.queue = []
+        self.refresh_list()
+        self.tick_id = GLib.timeout_add(1500, self.tick)
+
+    # ── queue ──────────────────────────────────────────────────────────
+    def add_url(self, _b):
+        u = self.url.get_text().strip()
+        if not u:
+            return
+        if not u.startswith(("http://", "https://", "ftp://", "magnet:")):
+            u = "https://" + u
+        self.queue.append(u)
+        self.url.set_text("")
+        self.status.set_text(f"Queued: {u}")
+        self.refresh_list()
+
+    def paste_url(self, _b):
+        cb = Gtk.Clipboard.get_default(None)
+        t = cb.wait_for_text()
+        if t:
+            self.url.set_text(t.strip())
+
+    def start_queue(self, _b):
+        if not self.queue:
+            self.status.set_text("Queue is empty.")
+            return
+        urls = self.queue
+        self.queue = []
+        log = open("/tmp/simorgh-download.log", "a")
+        try:
+            subprocess.Popen(CTL + urls, stdout=log, stderr=subprocess.STDOUT)
+        except OSError as e:
+            self.status.set_text(f"aria2c failed to start: {e}")
+        self.status.set_text(f"Started {len(urls)} download(s).")
+        self.refresh_list()
+
+    def stop_all(self, _b):
+        run_cmd(["pkill", "-f", "aria2c"])
+        self.status.set_text("Stopped.")
+        self.queue = []
+        self.refresh_list()
+
+    # ── list & progress ────────────────────────────────────────────────
+    def tick(self):
+        self.refresh_list()
+        return True
+
+    def ps_lines(self):
+        out = []
+        try:
+            r = subprocess.run(["ps", "eo", "args"], capture_output=True,
+                               text=True, timeout=5).stdout
+            for line in r.splitlines():
+                if "aria2c" in line and "--conf-path" in line:
+                    out.append(line)
+        except Exception:  # noqa: BLE001
+            pass
+        return out
+
+    def recent_files(self):
+        try:
+            files = sorted((os.path.join(DL, f) for f in os.listdir(DL)
+                            if not f.endswith(".aria2")),
+                           key=os.path.getmtime, reverse=True)
+            return files[:12]
+        except OSError:
+            return []
+
+    def refresh_list(self, _a=None):
+        for c in self.lst.get_children():
+            self.lst.remove(c)
+        busy = self.ps_lines()
+        if busy:
+            for line in busy:
+                u = line.strip().split()[-1]
+                row = Gtk.ListBoxRow()
+                row.get_style_context().add_class("store-row")
+                box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+                box.set_margin_start(8); box.set_margin_top(6); box.set_margin_bottom(6)
+                box.pack_start(label("downloading", cls="state-warn"), False, False, 0)
+                t = label(u)
+                t.set_ellipsize(3)
+                box.pack_start(t, True, True, 0)
+                row.add(box)
+                self.lst.add(row)
+        for p in self.recent_files():
+            row = Gtk.ListBoxRow()
+            row.get_style_context().add_class("store-row")
+            box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            box.set_margin_start(8); box.set_margin_top(6); box.set_margin_bottom(6)
+            st = os.path.getsize(p)
+            done = os.path.exists(p + ".aria2") is False
+            mark = label("ok", cls="state-ok") if done else label("partial", cls="state-warn")
+            box.pack_start(mark, False, False, 0)
+            t = label(f"{os.path.basename(p)}  ·  {st / 1e6:.1f} MB")
+            t.set_ellipsize(3)
+            box.pack_start(t, True, True, 0)
+            row.add(box)
+            self.lst.add(row)
+        if not busy and not self.recent_files():
+            self.lst.add(Gtk.ListBoxRow().add(label("Nothing here yet.", cls="dim")))
+        self.lst.show_all()
+        return False
+
+    def do_delete_event(self):
+        GLib.source_remove(self.tick_id)
+        return True
+
+
+if __name__ == "__main__":
+    Download()
+    Gtk.main()

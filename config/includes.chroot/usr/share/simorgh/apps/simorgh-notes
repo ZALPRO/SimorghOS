@@ -1,0 +1,272 @@
+#!/usr/bin/env python3
+"""SimorghOS — Notes: markdown notes in ~/Notes with folders, search,
+pinning, export, and a plain-text editor with autosave."""
+import json
+import os
+import re
+import sys
+
+sys.path.insert(0, "/usr/share/simorgh")
+from gi.repository import Gtk, GLib  # noqa: E402
+from ui import card, header, init, label, run_cmd  # noqa: E402
+
+NOTES = os.path.expanduser("~/Notes")
+META = os.path.join(NOTES, "index.json")
+
+
+def load_meta():
+    if os.path.exists(META):
+        try:
+            return json.load(open(META))
+        except (ValueError, OSError):
+            pass
+    return {}
+
+
+def save_meta(m):
+    os.makedirs(NOTES, exist_ok=True)
+    json.dump(m, open(META, "w"), indent=1)
+
+
+def slug(s):
+    s = re.sub(r"[^\w\s-]", "", s).strip().replace(" ", "-")[:40]
+    return s or "note"
+
+
+class Notes:
+    def __init__(self):
+        self.win = init("Notes", 1000, 660)
+        header(self.win, "Notes", icon="notes")
+        self.meta = load_meta()
+        self.current = None
+        self.save_timer = None
+        self.build_ui()
+        self.refresh()
+        self.win.show_all()
+
+    def build_ui(self):
+        body = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        self.win.add(body)
+
+        side = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        side.set_size_request(280, -1)
+        side.get_style_context().add_class("simorgh-sidebar")
+        top = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        top.set_margin_start(10); top.set_margin_end(10); top.set_margin_top(8)
+        self.new_b = Gtk.Button(label="New note")
+        self.new_b.get_style_context().add_class("suggested-action")
+        self.new_b.connect("clicked", self.new_note)
+        top.pack_start(self.new_b, True, True, 0)
+        side.pack_start(top, False, False, 0)
+        self.search = Gtk.SearchEntry(placeholder_text="Search notes…")
+        self.search.set_margin_start(10); self.search.set_margin_end(10)
+        self.search.set_margin_bottom(6)
+        self.search.connect("search-changed", lambda _s: self.refresh())
+        side.pack_start(self.search, False, False, 0)
+        sw = Gtk.ScrolledWindow()
+        sw.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        self.lst = Gtk.ListBox()
+        self.lst.set_selection_mode(Gtk.SelectionMode.SINGLE)
+        self.lst.connect("row-selected", self.on_select)
+        sw.add(self.lst)
+        side.pack_start(sw, True, True, 0)
+        body.pack_start(side, False, False, 0)
+
+        ed = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        ed.set_margin_start(8); ed.set_margin_end(10)
+        ed.set_margin_top(10); ed.set_margin_bottom(10)
+        body.pack_start(ed, True, True, 0)
+
+        bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        self.title_e = Gtk.Entry()
+        self.title_e.set_placeholder_text("Title")
+        self.title_e.connect("changed", self.dirty)
+        bar.pack_start(self.title_e, True, True, 0)
+        for icon, tip, cb in (("starred", "Pin", self.pin),
+                              ("document-save", "Export .md", self.export_md),
+                              ("user-trash", "Delete", self.delete)):
+            b = Gtk.Button()
+            b.set_tooltip_text(tip)
+            b.add(Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.BUTTON))
+            b.connect("clicked", cb)
+            bar.pack_start(b, False, False, 0)
+        ed.pack_start(bar, False, False, 0)
+
+        sw2 = Gtk.ScrolledWindow()
+        sw2.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        self.buf = Gtk.TextBuffer()
+        self.buf.connect("changed", self.dirty)
+        self.txt = Gtk.TextBuffer()
+        self.txt = Gtk.TextView(buffer=self.buf)
+        self.txt.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+        self.txt.set_left_margin(10); self.txt.set_right_margin(10)
+        self.txt.set_top_margin(8)
+        self.txt.get_style_context().add_class("note-editor")
+        sw2.add(self.txt)
+        ed.pack_start(sw2, True, True, 0)
+        self.status = label("", cls="dim")
+        ed.pack_start(self.status, False, False, 0)
+
+    # ── list ───────────────────────────────────────────────────────────
+    def note_files(self):
+        out = []
+        for root, _d, files in os.walk(NOTES):
+            if root.endswith("Trash"):
+                continue
+            for f in files:
+                if f.endswith(".md") and f != "index.json":
+                    p = os.path.join(root, f)
+                    out.append(p)
+        return out
+
+    def refresh(self):
+        for c in self.lst.get_children():
+            self.lst.remove(c)
+        q = self.search.get_text().lower()
+        rows = []
+        for p in self.note_files():
+            key = os.path.relpath(p, NOTES)
+            m = self.meta.get(key, {})
+            text = ""
+            try:
+                text = open(p, encoding="utf-8").read()
+            except OSError:
+                continue
+            if q and q not in (m.get("title", "") + text).lower():
+                continue
+            rows.append((m.get("pinned", False), m.get("mtime", 0), key, p,
+                         m.get("title", os.path.basename(p)[:-3])))
+        rows.sort(reverse=True)
+        if not rows:
+            e = Gtk.ListBoxRow()
+            e.add(label("No notes yet — create one.", cls="dim"))
+            self.lst.add(e)
+        for pinned, _mt, key, p, title in rows:
+            row = Gtk.ListBoxRow()
+            row.set_data("path", p)
+            row.get_style_context().add_class("note-row")
+            box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+            box.set_margin_start(10); box.set_margin_top(6); box.set_margin_bottom(6)
+            box.set_margin_end(6)
+            if pinned:
+                box.pack_start(Gtk.Image.new_from_icon_name("starred", Gtk.IconSize.MENU),
+                               False, False, 0)
+            box.pack_start(label(title, bold=pinned), True, True, 0)
+            row.add(box)
+            self.lst.add(row)
+        self.lst.show_all()
+
+    def on_select(self, _l, row):
+        if row is None:
+            return
+        p = row.get_data("path")
+        if not p:
+            return
+        self.open(p)
+
+    # ── editor ─────────────────────────────────────────────────────────
+    def open(self, p):
+        self.flush()
+        self.current = p
+        key = os.path.relpath(p, NOTES)
+        try:
+            text = open(p, encoding="utf-8").read()
+        except OSError:
+            text = ""
+        head = text.splitlines()[0] if text else ""
+        title = self.meta.get(key, {}).get("title", os.path.basename(p)[:-3])
+        self.title_e.set_text(title)
+        self.buf.set_text(text.lstrip("#").lstrip())
+        self.status.set_text(p)
+
+    def flush(self):
+        if not self.current:
+            return
+        t = self.buf.get_text(*self.buf.get_bounds(), True)
+        title = self.title_e.get_text().strip() or "Untitled"
+        with open(self.current, "w", encoding="utf-8") as f:
+            f.write(f"# {title}\n\n{t}\n")
+        key = os.path.relpath(self.current, NOTES)
+        m = self.meta.get(key, {})
+        m.update({"title": title, "mtime": os.path.getmtime(self.current)})
+        self.meta[key] = m
+        save_meta(self.meta)
+        self.status.set_text(f"Saved · {self.current}")
+
+    def dirty(self, _w=None):
+        self.status.set_text("Editing… (autosave on switch/delete)")
+        if self.save_timer:
+            GLib.source_remove(self.save_timer)
+        self.save_timer = GLib.timeout_add(5000, self._autosave)
+
+    def _autosave(self):
+        self.flush()
+        self.save_timer = None
+        return False
+
+    def new_note(self, _b):
+        self.flush()
+        self.refresh()
+        os.makedirs(NOTES, exist_ok=True)
+        p = f"{NOTES}/{slug(self.title_e.get_text() or 'note')}.md"
+        i = 1
+        while os.path.exists(p):
+            i += 1
+            p = f"{NOTES}/{slug('note ' + str(i))}.md"
+        open(p, "w").write("# Untitled\n\n")
+        self.open(p)
+        self.search.set_text("")
+        self.refresh()
+        for row in self.lst.get_children():
+            if row.get_data("path") == p:
+                self.lst.select_row(row)
+                break
+
+    def pin(self, _b):
+        if not self.current:
+            return
+        key = os.path.relpath(self.current, NOTES)
+        m = self.meta.get(key, {})
+        m["pinned"] = not m.get("pinned", False)
+        self.meta[key] = m
+        save_meta(self.meta)
+        self.refresh()
+
+    def export_md(self, _b):
+        if not self.current:
+            return
+        d = Gtk.FileChooserDialog(title="Export note", transient_for=self.win,
+                                  action=Gtk.FileChooserAction.SAVE)
+        d.add_button("Cancel", Gtk.ResponseType.CANCEL)
+        d.add_button("Export", Gtk.ResponseType.OK)
+        d.set_current_name(os.path.basename(self.current))
+        if d.run() == Gtk.ResponseType.OK:
+            import shutil
+            shutil.copy2(self.current, d.get_filename())
+        d.destroy()
+
+    def delete(self, _b):
+        if not self.current:
+            return
+        key = os.path.relpath(self.current, NOTES)
+        d = Gtk.MessageDialog(transient_for=self.win, modal=True,
+                              message_type=Gtk.MessageType.WARNING,
+                              buttons=Gtk.ButtonsType.YES_NO,
+                              text=f"Delete {key}?")
+        r = d.run(); d.destroy()
+        if r != Gtk.ResponseType.YES:
+            return
+        trash = os.path.join(NOTES, "Trash")
+        os.makedirs(trash, exist_ok=True)
+        os.replace(self.current, os.path.join(trash, os.path.basename(self.current)))
+        self.meta.pop(key, None)
+        save_meta(self.meta)
+        self.current = None
+        self.buf.set_text("")
+        self.title_e.set_text("")
+        self.refresh()
+
+
+if __name__ == "__main__":
+    Notes()
+    Gtk.main()

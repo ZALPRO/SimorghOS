@@ -1,0 +1,413 @@
+#!/usr/bin/env python3
+"""SimorghOS — Files: full file manager (places, devices, trash, history,
+sort, search, context menu, clipboard, rename, properties, new folder)."""
+import os
+import stat as statmod
+import sys
+import time
+
+sys.path.insert(0, "/usr/share/simorgh")
+from gi.repository import Gtk, Gdk, GdkPixbuf, GLib  # noqa: E402
+from ui import card, header, init, label, run_cmd  # noqa: E402
+
+HOME = os.path.expanduser("~")
+TRASH = os.path.join(HOME, ".local", "share", "Trash", "files")
+PLACES = [
+    ("folder-home", "Home", HOME),
+    ("folder-document", "Documents", HOME + "/Documents"),
+    ("folder-download", "Downloads", HOME + "/Downloads"),
+    ("folder-music", "Music", HOME + "/Music"),
+    ("folder-pictures", "Pictures", HOME + "/Pictures"),
+    ("folder-videos", "Videos", HOME + "/Videos"),
+    ("user-trash", "Trash", TRASH),
+]
+
+ICON_THE = Gtk.IconTheme.get_default()
+
+
+def dev_dirs():
+    out = []
+    seen = set()
+    for base in ("/media", "/run/media"):
+        if os.path.isdir(base):
+            for u in os.listdir(base):
+                p = os.path.join(base, u)
+                if os.path.isdir(p) and p not in seen:
+                    for d in os.listdir(p):
+                        seen.add(os.path.join(p, d))
+                        out.append((os.path.join(p, d), d))
+    return out
+
+
+def human_size(n):
+    for u in ("B", "K", "M", "G", "T"):
+        if n < 1024:
+            return f"{n:.0f} {u}" if u == "B" else f"{n:.1f} {u}"
+        n /= 1024
+    return f"{n:.1f} P"
+
+
+class Files:
+    def __init__(self):
+        self.win = init("Files", 1000, 680)
+        self.history, self.fwd, self.hist_i = [HOME], [], 0
+        self.path = HOME
+        self.clip = []
+        self.cutting = False
+        self.sort_key = "name"
+        self.sort_rev = False
+        self.build_ui()
+        self.load_places()
+        self.show(HOME)
+        self.win.show_all()
+        self.win.connect("key-press-event", self.on_key)
+
+    # ── UI ─────────────────────────────────────────────────────────────
+    def build_ui(self):
+        header(self.win, "Files", icon="folder")
+        body = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        self.win.add(body)
+
+        side = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        side.set_size_request(220, -1)
+        side.get_style_context().add_class("simorgh-sidebar")
+        lb = label("Places", bold=True)
+        lb.set_margin_start(14); lb.set_margin_top(10); lb.set_margin_bottom(4)
+        side.pack_start(lb, False, False, 0)
+        self.place_btns = []
+        for icon, name, path in PLACES:
+            b = Gtk.Button(label=f"  {name}")
+            b.set_relief(Gtk.ReliefStyle.NONE)
+            b.set_alignment(-1, 0)
+            img = Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.MENU)
+            b.set_image(img)
+            b.set_always_show_image(True)
+            b.connect("clicked", lambda _b, p=path: self.show(p))
+            side.pack_start(b, False, False, 0)
+            self.place_btns.append((b, path))
+        side.pack_start(Gtk.Separator(), False, False, 6)
+        lb = label("Devices", bold=True)
+        lb.set_margin_start(14); lb.set_margin_top(6); lb.set_margin_bottom(4)
+        side.pack_start(lb, False, False, 0)
+        self.dev_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        side.pack_start(self.dev_box, False, False, 0)
+        side.pack_start(Gtk.Separator(), False, False, 6)
+        info = label("Tip: double-click to open · F2 to rename · Del to trash", cls="dim")
+        info.set_margin_start(14); info.set_margin_bottom(10)
+        side.pack_start(info, False, False, 0)
+        body.pack_start(side, False, False, 0)
+
+        main = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        main.set_margin_start(6); main.set_margin_end(10); main.set_margin_top(8)
+        main.set_margin_bottom(10)
+        body.pack_start(main, True, True, 0)
+
+        nav = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        for icon, tip, cb in (("go-previous", "Back", self.back),
+                              ("go-next", "Forward", self.forward),
+                              ("go-up", "Up", self.up),
+                              ("document-edit", "New folder", self.new_folder),
+                              ("edit-paste", "Paste", self.paste)):
+            b = Gtk.Button()
+            b.set_tooltip_text(tip)
+            b.add(Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.BUTTON))
+            b.connect("clicked", lambda _b, f=cb: f())
+            nav.pack_start(b, False, False, 0)
+        self.pathbar = Gtk.Entry()
+        self.pathbar.connect("activate", lambda e: self.show(e.get_text()))
+        nav.pack_start(self.pathbar, True, True, 0)
+        self.search = Gtk.SearchEntry(placeholder_text="Filter files…")
+        self.search.set_width_chars(18)
+        self.search.connect("search-changed", lambda s: self.refresh_list())
+        nav.pack_start(self.search, False, False, 0)
+        main.pack_start(nav, False, False, 0)
+
+        wrap = Gtk.ScrolledWindow()
+        wrap.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        cols = []
+        self.store = Gtk.TreeStore(GdkPixbuf.Pixbuf, str, str, str, str)
+        c = Gtk.TreeViewColumn("Name")
+        cb = Gtk.CellRendererPixbuf()
+        c.pack_start(cb, False)
+        c.set_attributes(cb, pixbuf=0)
+        ct = Gtk.CellRendererText()
+        c.pack_start(ct, True)
+        c.set_attributes(ct, text=1)
+        c.set_clickable(True)
+        c.set_sort_column_id(1)
+        c.connect("clicked", self.on_col_click, 0)
+        cols.append(c)
+        for idx, title in ((2, "Size"), (3, "Modified")):
+            c = Gtk.TreeViewColumn(title)
+            r = Gtk.CellRendererText()
+            c.pack_start(r, True)
+            c.set_attributes(r, text=idx)
+            c.set_clickable(True)
+            c.connect("clicked", self.on_col_click, idx)
+            cols.append(c)
+        self.view = Gtk.TreeView(model=self.store)
+        for c in cols:
+            self.view.append_column(c)
+        self.view.set_headers_visible(True)
+        self.view.connect("row-activated", self.on_activate)
+        self.view.connect("button-press-event", self.on_menu)
+        wrap.add(self.view)
+        main.pack_start(wrap, True, True, 0)
+
+        self.status = label("", cls="dim")
+        main.pack_start(self.status, False, False, 0)
+
+    def on_col_click(self, _c, idx):
+        if self.sort_key == idx:
+            self.sort_rev = not self.sort_rev
+        else:
+            self.sort_key, self.sort_rev = idx, False
+        self.refresh_list()
+
+    def on_key(self, _w, ev):
+        if ev.keyval == Gdk.KEY_F2:
+            self.rename()
+        elif ev.keyval in (Gdk.KEY_Delete, Gdk.KEY_BackSpace):
+            self.trash()
+        return False
+
+    # ── navigation ─────────────────────────────────────────────────────
+    def show(self, path):
+        path = os.path.abspath(os.path.expanduser(path))
+        if not os.path.isdir(path):
+            return
+        self.path = path
+        self.history = self.history[:self.hist_i + 1] + [path]
+        self.fwd, self.hist_i = [], len(self.history) - 1
+        self.pathbar.set_text(path)
+        self.refresh_list()
+
+    def back(self):
+        if self.hist_i > 0:
+            self.hist_i -= 1
+            self.pathbar.set_text(self.history[self.hist_i])
+            self.refresh_list()
+
+    def forward(self):
+        if self.hist_i < len(self.history) - 1:
+            self.hist_i += 1
+            self.pathbar.set_text(self.history[self.hist_i])
+            self.refresh_list()
+
+    def up(self):
+        p = os.path.dirname(self.path)
+        if p and p != self.path:
+            self.show(p)
+
+    def load_places(self):
+        for b, p in self.place_btns:
+            b.set_sensitive(os.path.isdir(p))
+        for c in self.dev_box.get_children():
+            self.dev_box.remove(c)
+        for path, name in dev_dirs():
+            b = Gtk.Button(label=f"  {name}")
+            b.set_relief(Gtk.ReliefStyle.NONE)
+            b.set_alignment(-1, 0)
+            b.set_image(Gtk.Image.new_from_icon_name("drive-removable-media", Gtk.IconSize.MENU))
+            b.set_always_show_image(True)
+            b.connect("clicked", lambda _b, p=path: self.show(p))
+            self.dev_box.pack_start(b, False, False, 0)
+
+    # ── listing ────────────────────────────────────────────────────────
+    def entries(self):
+        try:
+            names = os.listdir(self.path)
+        except OSError:
+            return []
+        rows = []
+        for n in names:
+            p = os.path.join(self.path, n)
+            if os.path.islink(p):
+                continue
+            try:
+                st = os.stat(p)
+            except OSError:
+                continue
+            isdir = statmod.S_ISDIR(st.st_mode)
+            rows.append((isdir, n, p, st.st_size if not isdir else 0, st.st_mtime))
+        q = self.search.get_text().lower()
+        if q:
+            rows = [r for r in rows if q in r[1].lower()]
+        key = {"name": 1, "size": 3, "modified": 4}[self.sort_key]
+        rows.sort(key=lambda r: (r[0], r[key]), reverse=self.sort_rev)
+        return rows
+
+    def pixbuf_for(self, path, isdir):
+        try:
+            if isdir:
+                info = ICON_THE.lookup_icon("folder", 24, 0)
+            else:
+                info = ICON_THE.lookup_by_uri("file://" + path)
+                if info is None:
+                    info = ICON_THE.lookup_by_name("text-x-generic", 24, 0)
+            return info.load_icon()
+        except Exception:  # noqa: BLE001
+            return None
+
+    def refresh_list(self):
+        self.store.clear()
+        rows = self.entries()
+        for isdir, name, p, size, mt in rows:
+            icon = "folder" if isdir else "text-x-generic"
+            self.store.append(None, self.pixbuf_for(p, isdir), name,
+                              human_size(size) if not isdir else "—",
+                              time.strftime("%Y-%m-%d %H:%M", time.localtime(mt)),
+                              (isdir, p))
+        self.status.set_text(f"{len(rows)} items · {self.path}")
+        self.win.get_titlebar().set_subtitle(self.path)
+        for b, p in self.place_btns:
+            b.get_style_context().remove_class("active-place")
+            if p == self.path:
+                b.get_style_context().add_class("active-place")
+
+    # ── actions ────────────────────────────────────────────────────────
+    def selection(self):
+        m, it = self.view.get_selection().get_selected_rows()
+        out = []
+        for i in it:
+            v = m.get_value(i, 4)
+            if v:
+                out.append(v[1])
+        return out
+
+    def on_activate(self, _v, path, _col):
+        p = self.store[path][4][1]
+        if self.store[path][4][0]:
+            self.show(p)
+        else:
+            run_cmd(["xdg-open", p])
+
+    def on_menu(self, _v, ev):
+        if ev.type != Gdk.EventType.BUTTON_PRESS or ev.button != 3:
+            return
+        self.view.row_at_pos(int(ev.x), int(ev.y))
+        m = Gtk.Menu()
+        for icon, name, cb in (
+            ("document-open", "Open", self.open_sel),
+            ("utilities-terminal", "Open in Terminal", self.term_sel),
+            ("edit-cut", "Cut", lambda b: self.cut()),
+            ("edit-copy", "Copy", lambda b: self.copy()),
+            ("edit-paste", "Paste", lambda b: self.paste()),
+            ("document-edit", "Rename", lambda b: self.rename()),
+            ("document-new", "New Folder", lambda b: self.new_folder()),
+            ("document-properties", "Properties", lambda b: self.props()),
+            ("user-trash", "Move to Trash", lambda b: self.trash()),
+        ):
+            it = Gtk.MenuItem.new_with_label(name)
+            it.add(Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.MENU))
+            it.set_image(Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.MENU))
+            it.set_always_show_image(True)
+            it.connect("activate", cb)
+            m.append(it)
+        m.show_all()
+        m.popup_at_pointer(None)
+
+    def open_sel(self, _b):
+        for p in self.selection():
+            run_cmd(["xdg-open", p])
+
+    def term_sel(self, _b):
+        for p in self.selection():
+            run_cmd(["kitty", p if os.path.isdir(p) else os.path.dirname(p)])
+
+    def cut(self):
+        self.clip, self.cutting = self.selection(), True
+
+    def copy(self):
+        self.clip, self.cutting = self.selection(), False
+
+    def paste(self):
+        if not self.clip:
+            return
+        import shutil
+        for src in self.clip:
+            dst = os.path.join(self.path, os.path.basename(src))
+            try:
+                if self.cutting:
+                    os.replace(src, dst)
+                elif os.path.isdir(src):
+                    shutil.copytree(src, dst)
+                else:
+                    shutil.copy2(src, dst)
+            except OSError:
+                pass
+        self.clip = []
+        self.refresh_list()
+
+    def new_folder(self, _b=None):
+        self._input_dialog("New folder", "Name:", lambda name: (
+            os.mkdir(os.path.join(self.path, name)) if name else None,
+            self.refresh_list()))
+
+    def rename(self, _b=None):
+        sel = self.selection()
+        if not sel:
+            return
+        p = sel[0]
+        self._input_dialog("Rename", "New name:",
+                           lambda name: (
+                               os.rename(p, os.path.join(self.path, name)) if name else None,
+                               self.refresh_list()), os.path.basename(p))
+
+    def _input_dialog(self, title, prompt, cb, default=""):
+        d = Gtk.Dialog(title=title, transient_for=self.win)
+        d.add_button("Cancel", Gtk.ResponseType.CANCEL)
+        d.add_button("OK", Gtk.ResponseType.OK)
+        box = d.get_content_area()
+        box.pack_start(label(prompt), False, False, 4)
+        e = Gtk.Entry()
+        e.set_text(default)
+        box.pack_start(e, True, True, 4)
+        d.show_all()
+        if d.run() == Gtk.ResponseType.OK:
+            cb(e.get_text().strip())
+        d.destroy()
+
+    def props(self, _b=None):
+        sel = self.selection()
+        if not sel:
+            return
+        p = sel[0]
+        st = os.stat(p)
+        lines = [
+            f"Name:        {os.path.basename(p) or p}",
+            f"Location:    {os.path.dirname(p)}",
+            f"Type:        {'Folder' if os.path.isdir(p) else 'File'}",
+            f"Size:        {human_size(st.st_size)}",
+            f"Modified:    {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(st.st_mtime))}",
+            f"Owner:       {st.st_uid}:{st.st_gid}",
+            f"Permissions: {oct(st.st_mode)[-3:]}",
+        ]
+        d = Gtk.MessageDialog(transient_for=self.win, modal=True,
+                              message_type=Gtk.MessageType.INFO,
+                              buttons=Gtk.ButtonsType.OK, text="\n".join(lines))
+        d.run(); d.destroy()
+
+    def trash(self, _b=None):
+        for p in self.selection():
+            try:
+                os.rename(p, os.path.join(TRASH, os.path.basename(p)))
+                info = os.path.join(HOME, ".local", "share", "Trash", "info",
+                                    os.path.basename(p) + ".trashinfo")
+                with open(info, "w") as f:
+                    f.write(f"[Trash Info]\nPath={p}\nDeletionDate={time.strftime('%Y-%m-%dT%H:%M:%S')}\n")
+            except OSError:
+                try:
+                    if os.path.isdir(p):
+                        import shutil; shutil.rmtree(p)
+                    else:
+                        os.remove(p)
+                except OSError:
+                    pass
+        self.refresh_list()
+
+
+if __name__ == "__main__":
+    app = Files()
+    GLib.timeout_add_seconds(60, lambda: (app.load_places(), False)[1])
+    Gtk.main()

@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# SimorghOS plugin — wallpaper picker
+set -euo pipefail
+dir=/usr/share/backgrounds/simorgh
+pick=$(ls "$dir" | rofi -dmenu -i -p "wallpaper")
+[[ -n "$pick" ]] && simorgh wallpaper "$pick"

@@ -55,6 +55,7 @@ gparted
 mesa-utils
 mesa-va-drivers
 mesa-vulkan-drivers
+libvulkan-lvp
 vulkan-tools
 firefox-esr
 firefox-esr-l10n-fa
@@ -86,3 +87,9 @@ wdisplays
 nala
 gnome-system-monitor
 gnome-calculator
+aria2
+ffmpeg
+poppler-utils
+sane-utils
+sane-airscan
+x11-utils
