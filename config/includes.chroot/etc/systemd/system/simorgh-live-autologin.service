@@ -1,5 +1,6 @@
 # SimorghOS — live sessions boot straight into the desktop;
 # installed systems keep the greeter.
+# boot flag `simorgh-shot=calamares` opens the installer instead (for QA screenshots).
 [Unit]
 Description=SimorghOS live autologin
 DefaultDependencies=no
@@ -10,7 +11,13 @@ ConditionKernelCommandLine=boot=live
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/bin/sh -c 'sed -i "s/^autologin-user=.*/autologin-user=user/" /etc/lightdm/lightdm.conf'
+ExecStart=/bin/sh -c 'if grep -q simorgh-shot=calamares /proc/cmdline; then \
+    sed -i "s/^autologin-user=.*/autologin-user=user/" /etc/lightdm/lightdm.conf; \
+    mkdir -p /etc/xdg/autostart; \
+    printf "[Desktop Entry]\nType=Application\nName=Installer\nExec=sh -c \"sleep 3; calamares\"\nX-GNOME-Autostart-enabled=true\n" > /etc/xdg/autostart/simorgh-qa-installer.desktop; \
+  else \
+    sed -i "s/^autologin-user=.*/autologin-user=user/" /etc/lightdm/lightdm.conf; \
+  fi'
 
 [Install]
 WantedBy=multi-user.target
