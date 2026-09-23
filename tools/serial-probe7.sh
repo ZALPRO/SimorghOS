@@ -23,12 +23,14 @@ $PIN nice -n 19 qemu-system-x86_64 -m "$QMEM" -smp "$QCPU" -cpu max \
     -device virtio-gpu-pci \
     -display none \
     -qmp unix:"$W/qmp.sock",server,nowait \
-    -serial unix:"$W/serial.sock",server,nowait &
+    -serial unix:"$W/serial.sock",server,nowait \
+    -chardev socket,id=ser1,path="$W/ser1.sock",server=on,wait=off \
+    -device isa-serial,chardev=ser1 &
 QPID=$!
 
 echo "booting with bidirectional serial…"
 
-python3 - "$W/qmp.sock" "$W/serial.sock" "$CMD" "$W/probe.ppm" "$WAIT" "$W/transcript.txt" <<'EOF'
+python3 - "$W/qmp.sock" "$W/ser1.sock" "$CMD" "$W/probe.ppm" "$WAIT" "$W/transcript.txt" <<'EOF'
 import json, os, socket, sys, threading, time
 qmpsock, serpath, cmd, shot, waitmax = sys.argv[1:6]
 waitmax = int(waitmax)

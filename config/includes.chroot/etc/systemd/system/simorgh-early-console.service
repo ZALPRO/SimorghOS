@@ -11,7 +11,8 @@ Before=multi-user.target
 
 [Service]
 Type=simple
-ExecStart=/sbin/agetty --autologin user -s ttyS0 115200 vt100
+# ttyS1 (not ttyS0) so the shell is not interleaved with the kernel boot log
+ExecStart=/sbin/agetty --autologin user -s ttyS1 115200 vt100
 
 [Install]
 WantedBy=basic.target
