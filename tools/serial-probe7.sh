@@ -31,9 +31,10 @@ QPID=$!
 
 echo "booting with bidirectional serial…"
 
-python3 - "$W/qmp.sock" "$W/ser1.sock" "$CMD" "$W/probe.ppm" "$WAIT" "$W/transcript.txt" <<'EOF'
+python3 - "$W/qmp.sock" "$W/ser1.sock" "$CMD" "$W/probe.ppm" "$WAIT" "$W/transcript.txt" "$POST_WAIT" <<'EOF'
 import json, os, socket, sys, threading, time
 qmpsock, serpath, cmd, shot, waitmax = sys.argv[1:6]
+postwait = int(sys.argv[7])
 waitmax = int(waitmax)
 buf = bytearray()
 got_login = threading.Event()
@@ -83,7 +84,7 @@ time.sleep(4)
 send("for i in $(seq 1 40); do systemctl list-units >/dev/null 2>&1 && break; sleep 3; done\n")
 time.sleep(130)
 send(cmd + "\n")
-time.sleep(30)
+time.sleep(postwait)
 send("echo PROBE7_END\n")
 time.sleep(8)
 
