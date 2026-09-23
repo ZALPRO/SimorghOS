@@ -51,8 +51,6 @@ def reader():
         if b"user@simorgh:" in tail:
             got_shell.set()
             got_login.set()
-        elif b"login:" in tail:
-            got_login.set()
 
 rs = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 for _ in range(120):
@@ -76,20 +74,17 @@ while not got_login.wait(15):
         print("NO LOGIN PROMPT — dumping transcript only", flush=True)
         break
 t = time.time() - t0
-if got_shell.is_set():
-    print("autologin shell ready at %.0fs" % t, flush=True)
-else:
-    print("login prompt seen at %.0fs" % t, flush=True)
-    send("user\n")
-    time.sleep(10)
-    send("user\n")
-    time.sleep(12)
+print("autologin shell ready at %.0fs" % t, flush=True)
 send("clear\n")
 time.sleep(4)
+# wait for D-Bus (early console starts before dbus in the basic phase),
+# then run the diagnostic command (bounded: max 120s)
+send("for i in $(seq 1 40); do systemctl list-units >/dev/null 2>&1 && break; sleep 3; done\n")
+time.sleep(130)
 send(cmd + "\n")
-time.sleep(20)
+time.sleep(30)
 send("echo PROBE7_END\n")
-time.sleep(6)
+time.sleep(8)
 
 qs = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 qs.connect(qmpsock)
