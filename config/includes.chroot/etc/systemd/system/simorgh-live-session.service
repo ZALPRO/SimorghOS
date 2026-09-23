@@ -17,7 +17,7 @@ ExecStartPre=+/bin/sh -c "systemctl stop lightdm.service 2>/dev/null || true"
 ExecStartPre=+/bin/sh -c "mkdir -p /run/user/1000 && chown 1000:1000 /run/user/1000 && chmod 700 /run/user/1000"
 # Wait for the DRM render node (udev is slow under software rendering);
 # Hyprland must not crash-loop while it appears.
-ExecStartPre=/bin/sh -c "for i in $(seq 1 60); do [ -e /dev/dri/renderD128 ] && break; sleep 5; done"
+ExecStartPre=/bin/sh -c "for i in $(seq 1 180); do [ -e /dev/dri/renderD128 ] && [ -e /dev/dri/card0 ] && break; sleep 5; done"
 ExecStart=/bin/sh -c "exec /usr/share/simorgh/bin/simorgh-session 2>>/tmp/simorgh-hyprland.log"
 TimeoutStartSec=infinity
 Restart=on-failure
