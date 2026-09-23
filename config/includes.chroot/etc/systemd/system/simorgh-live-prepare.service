@@ -15,4 +15,4 @@ RemainAfterExit=yes
 ExecStart=/usr/share/simorgh/bin/simorgh-live-prepare.sh
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=basic.target

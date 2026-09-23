@@ -3,7 +3,6 @@
 [Unit]
 Description=SimorghOS live desktop session
 ConditionKernelCommandLine=boot=live
-After=multi-user.target
 Conflicts=lightdm.service
 
 [Service]

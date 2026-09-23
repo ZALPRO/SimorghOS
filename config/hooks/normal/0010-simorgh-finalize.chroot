@@ -44,8 +44,9 @@ for svc in NetworkManager.service bluetooth.service accounts-daemon.service \
         ln -sf "/usr/lib/systemd/system/$svc" "/etc/systemd/system/multi-user.target.wants/$svc" || true
     fi
 done
+mkdir -p /etc/systemd/system/basic.target.wants
 ln -sf /etc/systemd/system/simorgh-live-prepare.service \
-       /etc/systemd/system/multi-user.target.wants/simorgh-live-prepare.service || true
+       /etc/systemd/system/basic.target.wants/simorgh-live-prepare.service || true
 ln -sf /etc/systemd/system/simorgh-live-session.service \
        /etc/systemd/system/multi-user.target.wants/simorgh-live-session.service || true
 # serial console getty — debug + QA access on any boot
