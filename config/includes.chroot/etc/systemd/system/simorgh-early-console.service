@@ -1,0 +1,17 @@
+# SimorghOS — early debug console on ttyS0.
+# Starts in the basic.target phase (independent of multi-user.target) so a
+# serial shell is available even while the rest of the boot is still going.
+# Autologin for the default user; on real hardware this is the standard
+# way to reach a console on serial.
+[Unit]
+Description=SimorghOS early serial console (autologin)
+DefaultDependencies=no
+After=local-fs.target
+Before=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/sbin/agetty --autologin user -s ttyS0 115200 vt100
+
+[Install]
+WantedBy=basic.target

@@ -34,6 +34,7 @@ qmpsock, serpath, cmd, shot, waitmax = sys.argv[1:6]
 waitmax = int(waitmax)
 buf = bytearray()
 got_login = threading.Event()
+got_shell = threading.Event()
 
 def reader():
     while True:
@@ -44,7 +45,11 @@ def reader():
         if not c:
             return
         buf.extend(c)
-        if b"login:" in bytes(buf[-4000:]):
+        tail = bytes(buf[-4000:])
+        if b"user@simorgh:" in tail:
+            got_shell.set()
+            got_login.set()
+        elif b"login:" in tail:
             got_login.set()
 
 rs = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -63,16 +68,20 @@ def send(s):
     time.sleep(1)
 
 t0 = time.time()
-print("waiting for the serial login prompt (max %ss)…" % waitmax, flush=True)
+print("waiting for the serial shell (max %ss)…" % waitmax, flush=True)
 while not got_login.wait(15):
     if time.time() - t0 > waitmax:
         print("NO LOGIN PROMPT — dumping transcript only", flush=True)
         break
-print("login prompt seen at %.0fs" % (time.time() - t0), flush=True)
-send("user\n")
-time.sleep(10)
-send("user\n")
-time.sleep(12)
+t = time.time() - t0
+if got_shell.is_set():
+    print("autologin shell ready at %.0fs" % t, flush=True)
+else:
+    print("login prompt seen at %.0fs" % t, flush=True)
+    send("user\n")
+    time.sleep(10)
+    send("user\n")
+    time.sleep(12)
 send("clear\n")
 time.sleep(4)
 send(cmd + "\n")

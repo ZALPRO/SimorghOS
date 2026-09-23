@@ -47,6 +47,8 @@ done
 mkdir -p /etc/systemd/system/basic.target.wants
 ln -sf /etc/systemd/system/simorgh-live-prepare.service \
        /etc/systemd/system/basic.target.wants/simorgh-live-prepare.service || true
+ln -sf /etc/systemd/system/simorgh-early-console.service \
+       /etc/systemd/system/basic.target.wants/simorgh-early-console.service || true
 ln -sf /etc/systemd/system/simorgh-live-session.service \
        /etc/systemd/system/multi-user.target.wants/simorgh-live-session.service || true
 # serial console getty — debug + QA access on any boot
