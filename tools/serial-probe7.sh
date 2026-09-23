@@ -21,7 +21,7 @@ $PIN nice -n 19 qemu-system-x86_64 -m "$QMEM" -smp "$QCPU" -cpu max \
     -kernel "$W/vmlinuz" -initrd "$W/initrd" -cdrom "$ISO" \
     -append "boot=live quiet console=ttyS0" \
     -vga none \
-    -device virtio-gpu-pci \\
+    -device virtio-gpu-pci \
     -display none \
     -qmp unix:"$W/qmp.sock",server,nowait \
     -serial unix:"$W/serial.sock",server,nowait \
