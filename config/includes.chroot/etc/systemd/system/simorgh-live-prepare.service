@@ -1,0 +1,18 @@
+# SimorghOS — live media boot preparation (runs before multi-user.target).
+# On live media LightDM is masked so the boot path goes straight to the
+# Hyprland session (lightdm hangs under software rendering / slow CPUs).
+# Installed systems (no boot=live) are untouched: they keep LightDM + greeter.
+[Unit]
+Description=SimorghOS live boot preparation
+ConditionKernelCommandLine=boot=live
+DefaultDependencies=no
+After=local-fs.target live-config.service
+Before=multi-user.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/share/simorgh/bin/simorgh-live-prepare.sh
+
+[Install]
+WantedBy=multi-user.target

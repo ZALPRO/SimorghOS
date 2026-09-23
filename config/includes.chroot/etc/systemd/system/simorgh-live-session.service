@@ -3,7 +3,7 @@
 [Unit]
 Description=SimorghOS live desktop session
 ConditionKernelCommandLine=boot=live
-After=multi-user.target lightdm.service
+After=multi-user.target
 Conflicts=lightdm.service
 
 [Service]
@@ -13,7 +13,7 @@ Environment=HOME=/home/user
 Environment=XDG_RUNTIME_DIR=/run/user/1000
 Environment=LANG=en_US.UTF-8
 ExecStartPre=+/bin/sh -c "usermod -aG render,input user 2>/dev/null || true"
-ExecStartPre=+/bin/systemctl stop lightdm.service
+ExecStartPre=+/bin/sh -c "systemctl stop lightdm.service 2>/dev/null || true"
 ExecStart=/bin/sh -c "exec /usr/share/simorgh/bin/simorgh-session 2>>/tmp/simorgh-hyprland.log"
 TimeoutStartSec=infinity
 StandardOutput=journal

@@ -39,16 +39,19 @@ ln -sf /usr/lib/systemd/system/lightdm.service /etc/systemd/system/display-manag
 mkdir -p /etc/systemd/system/multi-user.target.wants
 for svc in NetworkManager.service bluetooth.service accounts-daemon.service \
            power-profiles-daemon.service unattended-upgrades.service \
-           timeshift.service flatpak-system-helper.service \
-           simorgh-live-autologin.service; do
+           timeshift.service flatpak-system-helper.service; do
     if [ -f "/usr/lib/systemd/system/$svc" ]; then
         ln -sf "/usr/lib/systemd/system/$svc" "/etc/systemd/system/multi-user.target.wants/$svc" || true
     fi
 done
-ln -sf /etc/systemd/system/simorgh-live-autologin.service \
-       /etc/systemd/system/multi-user.target.wants/simorgh-live-autologin.service || true
+ln -sf /etc/systemd/system/simorgh-live-prepare.service \
+       /etc/systemd/system/multi-user.target.wants/simorgh-live-prepare.service || true
 ln -sf /etc/systemd/system/simorgh-live-session.service \
        /etc/systemd/system/multi-user.target.wants/simorgh-live-session.service || true
+# serial console getty — debug + QA access on any boot
+mkdir -p /etc/systemd/system/getty.target.wants
+ln -sf /usr/lib/systemd/system/serial-getty@ttyS0.service \
+       /etc/systemd/system/getty.target.wants/serial-getty@ttyS0.service || true
 # unattended security upgrades by default
 if [ -d /etc/apt/apt.conf.d ]; then
     cat > /etc/apt/apt.conf.d/20simorgh-autoupgrade <<'EOF'
