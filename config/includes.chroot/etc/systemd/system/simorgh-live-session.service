@@ -18,8 +18,8 @@ ExecStartPre=+/bin/sh -c "systemctl stop lightdm.service 2>/dev/null || true"
 ExecStartPre=/bin/sh -c "for i in $(seq 1 60); do [ -e /dev/dri/renderD128 ] && break; sleep 5; done"
 ExecStart=/bin/sh -c "exec /usr/share/simorgh/bin/simorgh-session 2>>/tmp/simorgh-hyprland.log"
 TimeoutStartSec=infinity
-Restart=on-failure
-RestartSec=15
+# NOTE: no auto-restart while diagnosing the CCompositor failure —
+# a crash loop blocks multi-user.target and therefore the serial getty.
 StandardOutput=journal
 StandardError=journal
 
